@@ -39,10 +39,15 @@ dependencies {
     androidTestImplementation(test.espressoX)
     androidTestImplementation(test.testRunnerX)
 
-    compileOnly(libs.kotlinLib)
+//    compileOnly(libs.kotlinLib)
+    implementation(libs.kotlinLib)
 //    implementation(libs.appcompatX)
 //    implementation(libs.googleMaterial)
 //    implementation(libs.constraintLayoutX)
+
+    androidTestImplementation(test.junitExtX)
+    androidTestImplementation(test.espressoX)
+    androidTestImplementation(test.testRunnerX)
 }
 
 //publish {
