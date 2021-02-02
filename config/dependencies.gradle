@@ -132,6 +132,7 @@ ext {
             roomCompiler                  : "android.arch.persistence.room:compiler:$roomVersion",
 
             // androidX 库
+            annotationX                   : "androidx.annotation:annotation:1.1.0",
             appcompatX                    : "androidx.appcompat:appcompat:${androidSupportVersionX}",
             supportV4X                    : "androidx.legacy:legacy-support-v4:${androidLegacyVersionX}",
             constraintLayoutX             : "androidx.constraintlayout:constraintlayout:${constraintLayoutVersionX}",

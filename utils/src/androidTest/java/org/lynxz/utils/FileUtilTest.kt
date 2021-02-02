@@ -100,6 +100,28 @@ class FileUtilTest {
     }
 
     @Test
+    fun writeByteTest() {
+        val absPath = "${externalFilesDir?.absolutePath}/a/abc_byte.bin"
+        Assert.assertTrue(FileUtil.create(absPath, recreateIfExist = true))
+
+        Assert.assertTrue(FileUtil.writeToFile(byteArrayOf(), absPath))
+        Assert.assertTrue(FileUtil.readAllBytes(absPath).isEmpty())
+
+        val ba = byteArrayOf(1, 2, 3, 4, 5)
+        Assert.assertTrue(FileUtil.writeToFile(ba, absPath))
+        Assert.assertTrue(FileUtil.readAllBytes(absPath).size == ba.size)
+
+        Assert.assertTrue(FileUtil.writeToFile(ba, absPath, true))
+        Assert.assertTrue(FileUtil.readAllBytes(absPath).size == ba.size * 2)
+        Assert.assertTrue(FileUtil.readAllBytes(absPath)[0] == ba[0])
+
+        Assert.assertTrue(FileUtil.writeToFile(ba, absPath, false))
+        Assert.assertTrue(FileUtil.readAllBytes(absPath).size == ba.size)
+        Assert.assertTrue(FileUtil.readAllBytes(absPath)[0] == ba[0])
+    }
+
+
+    @Test
     fun copyTest() {
         val absPath = "${externalFilesDir?.absolutePath}/a/abc.txt"
         Assert.assertTrue(FileUtil.create(absPath, recreateIfExist = true))
@@ -128,5 +150,24 @@ class FileUtilTest {
         Assert.assertTrue(FileUtil.rename(srcFilePath, destFilePath))
         Assert.assertFalse(FileUtil.isExist(srcFilePath))
         Assert.assertTrue(FileUtil.isExist(destFilePath))
+    }
+
+    @Test
+    fun isDirEmptyTest() {
+        val srcFilePath = "${externalFilesDir?.absolutePath}/a/abc.txt"
+        Assert.assertTrue(FileUtil.create(srcFilePath))
+        Assert.assertTrue(FileUtil.isDirEmpty(srcFilePath)) // 作用于已存在的文件,判断为空
+
+        val srcFilePath1 = "${externalFilesDir?.absolutePath}/ab"
+        Assert.assertTrue(FileUtil.create(srcFilePath1, isDirPath = true, recreateIfExist = true))
+        Assert.assertTrue(FileUtil.isDirEmpty(srcFilePath1)) // 作用于空目录,判断为空
+
+        Assert.assertTrue(FileUtil.create("${srcFilePath1}/abc.txt"))
+        Assert.assertFalse(FileUtil.isDirEmpty(srcFilePath1)) // 作用于非空目录,判断结果为非空
+
+        Assert.assertTrue(FileUtil.delete(srcFilePath1))
+        Assert.assertTrue(FileUtil.isDirEmpty(srcFilePath1)) // 作用于不存在的路径,判断为空
+        Assert.assertTrue(FileUtil.isDirEmpty(null))
+        Assert.assertTrue(FileUtil.isDirEmpty(""))
     }
 }

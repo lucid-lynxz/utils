@@ -177,17 +177,24 @@ object FileUtil {
         append: Boolean = false,
         autoAddCTRL: Boolean = false
     ): Boolean {
-        if (!create(absFilePath, isDirPath = false, recreateIfExist = false)) { // 文件不存在
+        val tAbsPath = processPath(absFilePath)
+
+        // 待写入内容为空,则表示清空原有内容,直接强制创建文件即可
+        if (msg.isNullOrBlank()) {
+            return create(tAbsPath, isDirPath = false, recreateIfExist = true)
+        }
+
+        if (!create(tAbsPath, isDirPath = false, recreateIfExist = false)) { // 文件不存在
             return false
         }
 
         var fw: FileWriter? = null
         var bfw: BufferedWriter? = null
         return try {
-            val file = File(absFilePath)
+            val file = File(tAbsPath)
             fw = FileWriter(file, append)
             bfw = BufferedWriter(fw)
-            bfw.write(msg ?: "")
+            bfw.write(msg)
             if (autoAddCTRL) {
                 bfw.write("\r\n")
             }
@@ -202,6 +209,44 @@ object FileUtil {
         }
     }
 
+    /**
+     * 写入字节数组到文件中
+     * @param msg ByteArray 待写入的字节数组
+     * @param absFilePath String 文件绝对路径
+     * @param append Boolean 是否是追加模式
+     * @return Boolean
+     */
+    fun writeToFile(
+        msg: ByteArray, // 未避免传null时跟重载的String方法混乱,此处不允许传null
+        absFilePath: String,
+        append: Boolean = false
+    ): Boolean {
+        val tAbsPath = processPath(absFilePath)
+
+        // 待写入内容为空,则表示清空原有内容,直接强制创建文件即可
+        if (msg.isEmpty()) {
+            return create(tAbsPath, isDirPath = false, recreateIfExist = true)
+        }
+
+        // 尝试创建目标文件
+        if (!create(tAbsPath)) {
+            return false
+        }
+
+        var os: FileOutputStream? = null
+        return try {
+            os = FileOutputStream(tAbsPath, append)
+            os.write(msg)
+            os.flush()
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        } finally {
+            os.closeSafety()
+        }
+    }
+
 
     /**
      * 复制文件到指定位置
@@ -211,12 +256,13 @@ object FileUtil {
      * @return 复制成功或失败(对单文件复制结果准确)
      */
     fun copy(fromPath: String?, toPath: String): Boolean {
-        if (!isExist(fromPath)) {
+        val absPath = processPath(fromPath)
+        if (!isExist(absPath)) {
             return false
         }
 
         val sep = File.separator
-        val srcFile = File(fromPath!!)
+        val srcFile = File(absPath)
         var copyResult = true
 
         if (srcFile.isDirectory) { // 目录-递归处理
@@ -268,12 +314,13 @@ object FileUtil {
      * 列出指定路径目录的所有子文件列表(只包含一级子文件)
      * 若所给路径并未表示目录, 则返回空数据
      *
-     * @param absPath    文件路径,若表示非目录,则返回空数组
+     * @param filePath   文件路径,若表示非目录,则返回空数组
      * @param comparator 对目录下的子文件进行排序,若为null,则不做排序,直接返回
      */
-    fun listSubFiles(absPath: String?, comparator: Comparator<File>? = null): Array<File> {
+    fun listSubFiles(filePath: String?, comparator: Comparator<File>? = null): Array<File> {
+        val absPath = processPath(filePath)
         val emptyList = arrayOf<File>()
-        if (absPath.isNullOrBlank()) {
+        if (absPath.isBlank()) {
             return emptyList
         }
         val folder = File(absPath)
@@ -292,18 +339,28 @@ object FileUtil {
     }
 
     /**
+     * 对文件路径进行处理, 对(反)斜杠进行处理
+     * @return String
+     */
+    fun processPath(path: String?) =
+        path?.replace("\\", File.separator)?.replace("//", File.separator) ?: ""
+
+    /**
      * 获取文件名, 包括扩展名, 如: x.9.png
      * 以"/"切分路径并提取最后一部分
      *
      * @param filePath 文件路径
      */
     fun getName(filePath: String?): String {
-        if (filePath.isNullOrBlank()) {
-            return ""
+        val tPath = processPath(filePath)
+        val arr = tPath.split(File.separator).toTypedArray()
+        val size = arr.size
+        var name = arr[size - 1]
+        if (name.isBlank() && size >= 2) {
+            name = arr[size - 2]
         }
 
-        val arr = filePath.split(File.separator).toTypedArray()
-        return arr[arr.size - 1]
+        return name
     }
 
     /**
@@ -337,9 +394,10 @@ object FileUtil {
      * @param getSubFileModifiedTime  true-提取子文件修改时间(目录有效) false-返回指定文件(目录)修改时间
      */
     fun getLastModified(
-        abspath: String,
+        filePath: String,
         getSubFileModifiedTime: Boolean = false
-    ): HashMap<String, Long>? {
+    ): HashMap<String, Long> {
+        val abspath = processPath(filePath)
         val ts = HashMap<String, Long>()
         if (abspath.isBlank()) {
             ts[abspath] = 0L
@@ -361,5 +419,4 @@ object FileUtil {
         }
         return ts
     }
-
 }

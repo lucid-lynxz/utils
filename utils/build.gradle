@@ -41,6 +41,7 @@ dependencies {
 
 //    compileOnly(libs.kotlinLib)
     implementation(libs.kotlinLib)
+    implementation(libs.annotationX)
 //    implementation(libs.appcompatX)
 //    implementation(libs.googleMaterial)
 //    implementation(libs.constraintLayoutX)
