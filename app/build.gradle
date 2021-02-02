@@ -50,6 +50,7 @@ dependencies {
     implementation(libs.constraintLayoutX)
 
     implementation(libs.ktxCore)
+    implementation(libs.gson)
 //    implementation(libs.kotlinxCoroutinesCore)
 //    implementation(libs.kotlinxCoroutinesAndroid)
 

@@ -3,7 +3,7 @@ package org.lynxz.utilsdemo
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import org.lynxz.utils.AssetUtil
-import org.lynxz.utils.LoggerUtil
+import org.lynxz.utils.log.LoggerUtil
 
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

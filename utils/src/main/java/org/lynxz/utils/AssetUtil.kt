@@ -13,10 +13,15 @@ object AssetUtil {
      * 文件是否存在
      * @param name 文件名如: c 表示 assets/{parentRelPath}/name
      * @param parentRelPath 文件所在目录相对路径,如: a/b 表示 asset/a/b/ 目录, 默认表示assets/目录
-     *
+     *          兼容了写法 a/b/ (结尾分隔符), 会删除结尾的分隔符
      */
     fun isExist(context: Context, name: String, parentRelPath: String = "") =
-        if (name.isBlank()) false else context.assets.list(parentRelPath)?.contains(name) ?: false
+        if (name.isBlank()) false else context.assets.list(
+            FileUtil.processPath(
+                parentRelPath,
+                true
+            )
+        )?.contains(name) ?: false
 
     /**
      * 判断指定路径的asset文件是否是非空目录
@@ -119,7 +124,7 @@ object AssetUtil {
             val assetManager = context.assets
             if (isDir) { // 目录, 递归复制子文件
                 val fileNames = assetManager.list(assetFilePath)
-                val size = if (fileNames.isNullOrEmpty()) 0 else fileNames.size
+                // val size = if (fileNames.isNullOrEmpty()) 0 else fileNames.size
                 fileNames?.forEach { name ->
                     val tAssetFilePath = FileUtil.processPath("$assetFilePath/$name")
                     val isNotEmptyDir = isNotEmptyDir(context, tAssetFilePath) // 是否是非空目录
@@ -129,7 +134,7 @@ object AssetUtil {
                 inputStream = assetManager.open(assetFilePath)
                 outputStream = FileOutputStream(destFilePath)
                 val buff = ByteArray(1024)
-                var len = 0
+                var len: Int
                 while (inputStream.read(buff).also { len = it } >= 0) {
                     outputStream.write(buff, 0, len)
                 }

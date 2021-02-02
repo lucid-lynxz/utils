@@ -14,7 +14,7 @@ class AssetUtilTest {
         // 访问的是 utils/src/androidTest/assets/**
         val context = InstrumentationRegistry.getInstrumentation().context
         Assert.assertTrue(AssetUtil.isExist(context, "test_02.jpg", "img"))
-        Assert.assertFalse(AssetUtil.isExist(context, "test_02.jpg", "img/"))
+        Assert.assertTrue(AssetUtil.isExist(context, "test_02.jpg", "img/"))
         Assert.assertTrue(AssetUtil.isExist(context, "test_01.jpg", "img/png"))
 
         // 不支持和该种写法

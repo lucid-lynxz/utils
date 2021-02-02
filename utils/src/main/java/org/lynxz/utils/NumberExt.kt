@@ -62,9 +62,9 @@ fun String?.convert2Double(defaultValue: Double) =
  * double的科学计数法转 string,去除e标记
  */
 fun Double?.scientificNotation2str(): String? {
-    val dstr = "$this"
-    if (!dstr.toLowerCase().contains("e")) {
-        return dstr
+    val dStr = "$this"
+    if (!dStr.toLowerCase(Locale.getDefault()).contains("e")) {
+        return dStr
     }
     val nf = NumberFormat.getInstance()
     // 是否以逗号隔开, 默认true以逗号隔开,如[123,456,789.128]

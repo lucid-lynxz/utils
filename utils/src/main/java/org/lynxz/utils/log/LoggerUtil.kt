@@ -1,7 +1,6 @@
-package org.lynxz.utils
+package org.lynxz.utils.log
 
 import android.util.Log
-import androidx.annotation.IntDef
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -14,93 +13,89 @@ import org.json.JSONObject
  * LoggerUtil.i(tag,msg) 或 LoggerUtil.i(msg) 使用通用的tag值
  */
 object LoggerUtil {
-    const val LEVEL_VERBOSE = 0 //打印所有日志
-    const val LEVEL_DEBUG = 1
-    const val LEVEL_INFO = 2
-    const val LEVEL_WARN = 3
-    const val LEVEL_ERROR = 4
-    const val LEVEL_NONE = 10 // 不打印任何级别日志
-
-    @IntDef(LEVEL_VERBOSE, LEVEL_DEBUG, LEVEL_INFO, LEVEL_WARN, LEVEL_ERROR, LEVEL_NONE)
-    annotation class LoggerLevel
-
+    private var lTag = "default_logger" // 默认tag
     private const val JSON_INDENT = 2
     private const val MIN_STACK_OFFSET = 3
+    private var logPersistenceImpl: ILogPersistence? = null // 持久化实现类
 
-    private var TAG = "logger_util"
-    var logLevel = LEVEL_DEBUG // 需要打印的日志等级(大于等于该等级的日志会被打印)
-
-    @JvmStatic
-    fun init(level: Int, clazz: Class<*>) {
-        TAG = clazz.simpleName
-        logLevel = level
-    }
+    @LogLevel.LogLevel1
+    var logLevel = LogLevel.DEBUG // 需要打印的日志等级(大于等于该等级的日志会被打印)
 
     /**
      * 支持用户自己传tag，可扩展性更好
      */
     @JvmStatic
-    fun init(level: Int, tag: String) {
-        TAG = tag
-        logLevel = level
+    fun init(
+        @LogLevel.LogLevel1 level: Int,
+        tag: String,
+        logPersistenceImpl: ILogPersistence? = null
+    ): LoggerUtil {
+        this.lTag = tag
+        this.logLevel = level
+        this.logPersistenceImpl = logPersistenceImpl
+        return this
     }
 
     @JvmStatic
     fun d(msg: String) {
-        d(TAG, msg)
+        d(lTag, msg)
     }
 
     @JvmStatic
     fun i(msg: String) {
-        i(TAG, msg)
+        i(lTag, msg)
     }
 
     @JvmStatic
     fun w(msg: String) {
-        w(TAG, msg)
+        w(lTag, msg)
     }
 
     @JvmStatic
     fun e(msg: String) {
-        e(TAG, msg)
+        e(lTag, msg)
     }
 
     @JvmStatic
     fun e(tag: String, msg: String) {
-        if (LEVEL_ERROR >= logLevel) {
+        if (LogLevel.ERROR >= logLevel) {
             if (msg.isNotBlank()) {
                 val s = getMethodNames()
                 Log.e(tag, String.format(s, msg))
+                filterPersistenceLog(LogLevel.ERROR, tag, msg)
             }
         }
     }
 
     @JvmStatic
     fun w(tag: String, msg: String) {
-        if (LEVEL_WARN >= logLevel) {
+        if (LogLevel.WARN >= logLevel) {
             if (msg.isNotBlank()) {
                 val s = getMethodNames()
                 Log.w(tag, String.format(s, msg))
+                filterPersistenceLog(LogLevel.WARN, tag, msg)
             }
         }
     }
 
     @JvmStatic
     fun i(tag: String, msg: String) {
-        if (LEVEL_INFO >= logLevel) {
+        if (LogLevel.INFO >= logLevel) {
             if (msg.isNotBlank()) {
                 val s = getMethodNames()
                 Log.i(tag, String.format(s, msg))
+                filterPersistenceLog(LogLevel.INFO, tag, msg)
             }
         }
     }
 
     @JvmStatic
     fun d(tag: String, msg: String) {
-        if (LEVEL_DEBUG >= logLevel) {
+        if (LogLevel.DEBUG >= logLevel) {
             if (msg.isNotBlank()) {
                 val s = getMethodNames()
                 Log.d(tag, String.format(s, msg))
+                filterPersistenceLog(LogLevel.DEBUG, tag, msg)
             }
         }
     }
@@ -159,7 +154,7 @@ object LoggerUtil {
         return builder.toString()
     }
 
-    fun getStackOffset(trace: Array<StackTraceElement>): Int {
+    private fun getStackOffset(trace: Array<StackTraceElement>): Int {
         var i = MIN_STACK_OFFSET
         while (i < trace.size) {
             val e = trace[i]
@@ -170,5 +165,16 @@ object LoggerUtil {
             i++
         }
         return -1
+    }
+
+    /**
+     * 所有日志语句都最终执行到这里, 判断是否需要持久化
+     */
+    private fun filterPersistenceLog(
+        @LogLevel.LogLevel1 logLevel: Int,
+        tag: String,
+        msg: String?
+    ) {
+        logPersistenceImpl?.filterPersistenceLog(logLevel, tag, msg)
     }
 }
