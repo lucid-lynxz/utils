@@ -13,3 +13,21 @@
 ...
 
 ## 使用说明
+
+### 1. 导入gitpack
+```gradle
+// 在项目 build.gradle 下添加仓库地址
+allprojects {
+		repositories {
+			...
+			maven { url 'https://jitpack.io' }
+		}
+	}
+```
+
+### 2. 在module下的 build.gradle 中导入依赖
+```gradle
+dependencies {
+	 implementation 'com.github.lucid-lynxz:utils:0.1.0'
+}
+```
