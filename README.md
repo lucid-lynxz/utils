@@ -8,7 +8,7 @@
 * [x] `LoggerUtil` 日志工具类, 可自定义进行持久化
 * [x] `ReflectUtil` 反射工具类
 * [x] `ProxyUtil` 接口动态代理实现工具类
-* [x] `NumberUtil` 字符串转数值扩展类
+* [x] `NumberExt` 字符串转数值扩展类
 * [x] `BooleanExt` 布尔类型扩展类
 ...
 
