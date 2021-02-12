@@ -15,7 +15,7 @@ import java.util.*
  */
 class LogPersistenceImpl(
     private val logDirPath: String, // 日志所在目录绝对路径(外部存储路径),要求可读写
-    private val maxCacheLen: Int = 0, // 缓冲区大小,日志超过该长度则执行flush
+    private val maxCacheLen: Int = 0, // 缓冲区大小,日志超过该长度则执行flush,0表示每条日志都立即写入文件
     private val logSizeLimit: Int = 1024 * 1024, // 单个日志文件大小限制,单位:b, 默认1Mb
     private val retainLineBreak: Boolean = false // 是否保留换行符(\n),默认移除
 ) : ILogPersistence {
@@ -47,6 +47,9 @@ class LogPersistenceImpl(
         return this
     }
 
+    /**
+     * 设置要持久化的日志等级,大于等于该等级的才会进行持久化
+     * */
     override fun setLevel(@LogLevel.LogLevel1 logLevel: Int): ILogPersistence {
         level = logLevel
         return this
@@ -146,7 +149,7 @@ class LogPersistenceImpl(
         tag: String,
         msg: String?
     ) {
-        if (level > logLevel || !tagSet.contains(tag) || msg.isNullOrBlank()) {
+        if (msg.isNullOrBlank() || (level > logLevel && !tagSet.contains(tag))) {
             return
         }
 

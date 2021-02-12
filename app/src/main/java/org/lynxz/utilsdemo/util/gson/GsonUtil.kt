@@ -1,7 +1,6 @@
 package org.lynxz.utilsdemo.util.gson
 
 import com.google.gson.GsonBuilder
-import com.google.gson.JsonSyntaxException
 import com.google.gson.reflect.TypeToken
 import org.lynxz.utils.log.LoggerUtil
 import org.lynxz.utilsdemo.util.gson.GsonUtil.parseJson
@@ -33,9 +32,9 @@ object GsonUtil {
     fun <T> parseJson(json: String, cls: Class<out T?>?): T? =
         if (json.isBlank()) null else {
             try {
-                mGson?.fromJson(json, cls)
-            } catch (e: JsonSyntaxException) {
-                LoggerUtil.w(TAG, "parseJson(String,clz) fail, srcJson:$json,errorMsg:${e.message}")
+                mGson.fromJson(json, cls)
+            } catch (e: Exception) {
+                LoggerUtil.e(TAG, "parseJson(String,clz) fail, srcJson:$json,errorMsg:${e.message}")
                 null
             }
         }
@@ -49,12 +48,27 @@ object GsonUtil {
         } else {
             val type = object : TypeToken<T>() {}.type
             try {
-                mGson?.fromJson(json, type)
-            } catch (e: JsonSyntaxException) {
-                LoggerUtil.w(TAG, "parseJson(String) fail, srcJson:$json,errorMsg:${e.message}")
+                mGson.fromJson(json, type)
+            } catch (e: Exception) {
+                LoggerUtil.e(TAG, "parseJson(String) fail, srcJson:$json,errorMsg:${e.message}")
                 null
             }
         }
+
+//    /**
+//     * 反序列化json列表数据,也可直接使用 [parseJson]
+//     */
+//    fun <T> parseJson(json: String, type: Type): T? =
+//        if (json.isBlank()) {
+//            null
+//        } else {
+//            try {
+//                mGson?.fromJson(json, type)
+//            } catch (e: Exception) {
+//                LoggerUtil.w(TAG, "parseJson(String) fail, srcJson:$json,errorMsg:${e.message}")
+//                null
+//            }
+//        }
 
     /**
      * 序列化输出指定对象
@@ -65,7 +79,7 @@ object GsonUtil {
     fun toJson(obj: Any?, pretty: Boolean = false) =
         try {
             val gson = if (pretty) mFormatGson else mGson
-            gson?.toJson(obj) ?: ""
+            gson.toJson(obj) ?: ""
         } catch (e: Exception) {
             LoggerUtil.e(TAG, "toJson() pretty=$pretty fail:${e.message}")
             obj.toString()
