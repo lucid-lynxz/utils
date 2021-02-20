@@ -23,7 +23,7 @@ class NumberUtilTest {
         Assert.assertEquals(123, "123".convert2Long(defaultValue))
         Assert.assertEquals(-1, "-1".convert2Long(defaultValue))
         Assert.assertEquals(2147483647L, "2147483647".convert2Long(defaultValue))
-        Assert.assertEquals(-2147483648, "-2147483648".convert2Long(defaultValue))
+        Assert.assertEquals(-2147483648, "2147483648".convert2Long(defaultValue))
         Assert.assertEquals(
             Long.MAX_VALUE,
             "9223372036854775807".convert2Long(defaultValue)

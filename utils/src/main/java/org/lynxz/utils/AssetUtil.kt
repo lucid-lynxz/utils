@@ -16,12 +16,7 @@ object AssetUtil {
      *          兼容了写法 a/b/ (结尾分隔符), 会删除结尾的分隔符
      */
     fun isExist(context: Context, name: String, parentRelPath: String = "") =
-        if (name.isBlank()) false else context.assets.list(
-            FileUtil.processPath(
-                parentRelPath,
-                true
-            )
-        )?.contains(name) ?: false
+        if (name.isBlank()) false else context.assets.list(parentRelPath)?.contains(name) ?: false
 
     /**
      * 判断指定路径的asset文件是否是非空目录

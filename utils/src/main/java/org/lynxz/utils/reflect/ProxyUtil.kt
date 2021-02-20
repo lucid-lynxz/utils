@@ -35,21 +35,28 @@ object ProxyUtil {
     }
 
     /**
-     * 创建某个接口/普通类(非abstract)的实例
+     * 创建某个接口/普通类/抽象类/枚举类的实例
+     * P.S. 枚举类默认返回第一个可用值,若无可用值,则返回null
      *
-     * @param clz      接口或普通类(非abstract) Class 对象
+     * @param clz      接口或类 Class 对象
      * @param callback 对接口或抽象方法有效, 在对应方法被触发时回调该callback
      * @return 若实例化失败, 则返回null
      */
-    fun <T> generateDefaultImplObj(clz: Class<T>?, callback: OnFunInvokeCallback?): T? {
+    fun <T> generateDefaultImplObj(clz: Class<T>?, callback: OnFunInvokeCallback? = null): T? {
         val modifier = clz?.modifiers ?: 0
         return when {
             clz == null -> null
+            clz.isEnum -> generateEnumImpl(clz) // 枚举类, 提取第一个可用值
             Modifier.isInterface(modifier) -> generateInterfaceImpl(clz, callback)  // 接口实例化
             Modifier.isAbstract(modifier) -> generateAbsClassInstance(clz, callback)  // 抽象类实例化
             else -> generateClassInstance(clz) // 普通类实例化(此处忽略了enum等类型)
         }
     }
+
+    /**
+     * 获取默认的枚举值
+     * */
+    private fun <T> generateEnumImpl(clz: Class<T>): T? = clz.enumConstants?.firstOrNull()
 
     /**
      * 创建指定接口的默认实现

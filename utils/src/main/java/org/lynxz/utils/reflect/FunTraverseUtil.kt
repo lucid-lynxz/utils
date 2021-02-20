@@ -399,8 +399,8 @@ class FunTraverseUtil<T> private constructor(private val targetObj: T) {
                     for (i in 0 until argGroupSize) {
                         argGroupIndexList.add(i)
                     }
-                    Collections.shuffle(argGroupIndexList) // 对参数组合的序号进行随机
-                    if (argGroupSize > maxArgValueGroupSize && maxArgValueGroupSize > 0) { // 按需截取指定个数的参数组合
+                    argGroupIndexList.shuffle() // 对参数组合的序号进行随机
+                    if (maxArgValueGroupSize in 1 until argGroupSize) { // 按需截取指定个数的参数组合
                         argGroupIndexList = argGroupIndexList.subList(0, maxArgValueGroupSize)
                     }
                 }

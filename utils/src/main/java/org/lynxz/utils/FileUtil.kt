@@ -367,7 +367,7 @@ object FileUtil {
 
     /**
      * 获取文件名, 包括扩展名, 如: x.9.png
-     * 以"/"切分路径并提取最后一部分
+     * 以"/"切分路径并提取最后的非空字符串
      *
      * @param filePath 文件路径
      */
@@ -375,13 +375,7 @@ object FileUtil {
     fun getName(filePath: String?): String {
         val tPath = processPath(filePath)
         val arr = tPath.split(File.separator).toTypedArray()
-        val size = arr.size
-        var name = arr[size - 1]
-        if (name.isBlank() && size >= 2) {
-            name = arr[size - 2]
-        }
-
-        return name
+        return arr.reversedArray().firstOrNull { it.isNotBlank() } ?: ""
     }
 
     /**

@@ -111,7 +111,7 @@ class FileUtilTest {
         Assert.assertTrue(FileUtil.writeToFile(ba, absPath))
         Assert.assertTrue(FileUtil.readAllBytes(absPath).size == ba.size)
 
-        Assert.assertTrue(FileUtil.writeToFile(ba, absPath, true))
+        Assert.assertTrue(FileUtil.writeToFile(msg = ba, absFilePath = absPath, append = true))
         Assert.assertTrue(FileUtil.readAllBytes(absPath).size == ba.size * 2)
         Assert.assertTrue(FileUtil.readAllBytes(absPath)[0] == ba[0])
 
@@ -169,5 +169,22 @@ class FileUtilTest {
         Assert.assertTrue(FileUtil.isDirEmpty(srcFilePath1)) // 作用于不存在的路径,判断为空
         Assert.assertTrue(FileUtil.isDirEmpty(null))
         Assert.assertTrue(FileUtil.isDirEmpty(""))
+    }
+
+    @Test
+    fun getNameTest() {
+        val fPath = "/sdcard/abc.txt"
+        val dPath = "/sdcard/xyz/"
+        val dPath1 = "/sdcard\\xyz\\"
+        val dPath2 = "/sdcard/xyz\\/////"
+
+        Assert.assertEquals("abc.txt", FileUtil.getName(fPath))
+        Assert.assertEquals("xyz", FileUtil.getName(dPath))
+        Assert.assertEquals("xyz", FileUtil.getName(dPath1))
+        Assert.assertEquals("xyz", FileUtil.getName(dPath2))
+
+        Assert.assertEquals("", FileUtil.getName(null))
+        Assert.assertEquals("", FileUtil.getName(""))
+        Assert.assertEquals("", FileUtil.getName("      \n\t "))
     }
 }
