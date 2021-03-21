@@ -50,7 +50,10 @@ class FuncTraverseTest {
             }
             .addBeforeFuncInvokeAction(object : ProxyUtil.OnFunInvokeCallback() {
                 override fun onFuncInvoke(
-                    method: Method, returnObj: Any?, argGroupIndex: Int, args: Array<Any?>?
+                    method: Method,
+                    returnObj: Any?,
+                    argGroupIndex: Int,
+                    args: Array<out Any?>?
                 ) {
                     // 每次方法执行前记录日志: 所用实参组合序号, 当前方法签名,方便后续回放
                     // 设置当前正在进行方法遍历的method签名并写入到日志

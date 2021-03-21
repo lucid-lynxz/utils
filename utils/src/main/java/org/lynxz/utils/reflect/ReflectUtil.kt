@@ -247,6 +247,7 @@ object ReflectUtil {
     fun generateDefaultTypeValueList(returnType: Class<*>) =
         mutableListOf<Any?>().apply {
             when (returnType) {
+                Void.TYPE -> add(null)
                 Boolean::class.java -> {
                     add(false)
                     add(true)

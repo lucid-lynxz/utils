@@ -39,7 +39,7 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
         BizHandler(targetLooper)
 
     // 外部注入的观察者,运行在外部指定的线程
-    private val outerObserverMap: MutableMap<Class<*>, Any> = ConcurrentHashMap()
+    private val outerObserverMap: MutableMap<Class<*>, Any?> = ConcurrentHashMap()
 
     // 内部生成的观察者,运行在sdk库回调线程
     private val innerObserverMap: MutableMap<Class<*>, Any> = ConcurrentHashMap()
@@ -79,15 +79,13 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
 
     /**
      * 外部添加可用的观察者,最终在主线程中回调
-     * 同一类型的observer,仅一个生效
+     * 同一类型的observer,仅最后一个生效
+     * @param observer outerObserver实例
+     * @param clz outerObserver所属类型,通常若参数 [observer] 是通过匿名内部类创建的,则建议明确指定其类型,避免识别错误
      */
-    fun registerOuterObserver(observer: Any) = putIfAbsent(outerObserverMap, observer)
-
-    private fun putIfAbsent(map: MutableMap<Class<*>, Any>, observer: Any) {
-        val ob = map[observer.javaClass]
-        if (ob == null) {
-            map[observer.javaClass] = observer
-        }
+    @JvmOverloads
+    fun <O : Any> registerOuterObserver(observer: O, clz: Class<out O> = observer.javaClass) {
+        outerObserverMap[clz] = observer
     }
 
     /**
@@ -96,7 +94,21 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
      * @param observerClz 观测者类型
      */
     @Suppress("UNCHECKED_CAST")
-    fun <O> getOuterRegisterObserver(observerClz: Class<O>) = outerObserverMap[observerClz] as? O
+    fun <O> getOuterRegisterObserver(observerClz: Class<O>): O? {
+        val outerOb = outerObserverMap[observerClz] as? O
+        // 若未找到, 则寻找已注入的父类,兼容匿名内部类情况
+        // 但建议注册匿名内部类创建的 outerObserver 时, 明确指定其所属 class 类型
+        if (outerOb == null) {
+            for ((_, v) in outerObserverMap) {
+                if (observerClz.isInstance(v)) {
+                    val o = v as? O
+                    outerObserverMap[observerClz] = o
+                    return o
+                }
+            }
+        }
+        return outerOb
+    }
 
     /**
      * 从缓存中提取自动生成的指定类型的observer
@@ -139,7 +151,7 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
                             val activeRunnableCount = activeRunnableCount.incrementAndGet()
                             LoggerUtil.d(
                                 TAG,
-                                "obUI method start:$method,obUui=$obOuter,activeRunnableCount=$activeRunnableCount,$this"
+                                "obUI method start:${method.name},obUui=${obOuter.hashCode()},activeRunnableCount=$activeRunnableCount,${this.hashCode()}"
                             )
                             method.invoke(obOuter, finalArgs)
                         } catch (e: IllegalAccessException) {
@@ -150,11 +162,12 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
                         val activeRunnableCount = activeRunnableCount.decrementAndGet()
                         LoggerUtil.d(
                             TAG,
-                            "obUI method end:$method,activeRunnableCount=$activeRunnableCount,$this"
+                            "obUI method end:${method.name},activeRunnableCount=$activeRunnableCount,${this.hashCode()}"
                         )
                     }
                 }
 
+                // LoggerUtil.d(TAG, "isNeedSwitch=$isNeedSwitch, method=${method.name}")
                 isNeedSwitch.yes {
                     targetHandler.post(runnable)
                 }.otherwise {
@@ -181,8 +194,9 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
         isNeedSwitch.yes { targetHandler.post(runnable) } otherwise { runnable.run() }
     }
 
+    // 是否需要切换线程进行触发 outerObserver
     private val isNeedSwitch: Boolean
-        get() = Looper.myLooper() == targetHandler.looper
+        get() = Looper.myLooper() != targetHandler.looper
 
     /**
      * 获取指定类型的 out observer,并封装为runnable, 最终执行 [invoke]
@@ -212,7 +226,8 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
          *
          * @param targetLooper 最终要运行的线程looper
          */
-        fun newInstance(targetLooper: Looper): ThreadSwitcher {
+        @JvmStatic
+        fun newInstance(targetLooper: Looper = Looper.getMainLooper()): ThreadSwitcher {
             return ThreadSwitcher(targetLooper).apply {
                 LoggerUtil.w(TAG, "ThreadSwitcher created $targetLooper,$this")
             }
