@@ -24,4 +24,5 @@ dependencies {
 ### 各工具类方法说明
 
 * [FileUtil](README_Fileutil.md) 文件的创建/删除/复制/移动/读/写等功能
+* [ThreadSwitcher](README_ThreadSwitcher.md) observer线程自动切换工具类
 * AssetUtil 待添加
