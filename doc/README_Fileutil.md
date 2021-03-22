@@ -6,7 +6,7 @@
 
 ## 方法介绍
 
-可参考 [测试用例FileUtilTest](utils/src/androidTest/java/org/lynxz/utils/FileUtilTest.kt)
+可参考 [测试用例FileUtilTest](../utils/src/androidTest/java/org/lynxz/utils/FileUtilTest.kt)
 
 ```kotlin
 val fPath = "/sdcard/abc.txt"

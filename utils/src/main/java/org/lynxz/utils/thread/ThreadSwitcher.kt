@@ -168,11 +168,7 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
                 }
 
                 // LoggerUtil.d(TAG, "isNeedSwitch=$isNeedSwitch, method=${method.name}")
-                isNeedSwitch.yes {
-                    targetHandler.post(runnable)
-                }.otherwise {
-                    runnable.run()
-                }
+                runOnTargetThread(runnable)
             }
         }).also { obInner ->
             innerObserverMap[observerClz] = obInner
