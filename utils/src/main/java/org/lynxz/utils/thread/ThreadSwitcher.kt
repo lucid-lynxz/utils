@@ -1,6 +1,7 @@
 package org.lynxz.utils.thread
 
 import android.os.Looper
+import androidx.annotation.GuardedBy
 import org.lynxz.utils.functions.RecookInfo
 import org.lynxz.utils.log.LoggerUtil
 import org.lynxz.utils.no
@@ -14,7 +15,6 @@ import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.lang.reflect.ParameterizedType
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -38,11 +38,14 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
     private val targetHandler: BizHandler =
         BizHandler(targetLooper)
 
+    private val outerLock = Object()
+
     // 外部注入的观察者,运行在外部指定的线程
-    private val outerObserverMap: MutableMap<Class<*>, Any?> = ConcurrentHashMap()
+    @GuardedBy("outerLock")
+    private val outerObserverMap: MutableMap<Class<*>, Any?> = mutableMapOf()
 
     // 内部生成的观察者,运行在sdk库回调线程
-    private val innerObserverMap: MutableMap<Class<*>, Any> = ConcurrentHashMap()
+    private val innerObserverMap: MutableMap<Class<*>, Any> = mutableMapOf()
 
     // 正在运行的Runnable个数
     private val activeRunnableCount = AtomicInteger(0)
@@ -54,6 +57,11 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
      * 获取正在目标线程执行的runnable个数
      */
     fun getActiveRunnableCount() = activeRunnableCount.get()
+
+    fun active() {
+        isActive.set(true)
+        targetHandler.enable = true
+    }
 
     /**
      * 停止转换器
@@ -72,7 +80,9 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
     fun release() {
         deActive()
         innerObserverMap.clear()
-        outerObserverMap.clear()
+        synchronized(outerLock) {
+            outerObserverMap.clear()
+        }
         activeRunnableCount.set(0)
         LoggerUtil.w(TAG, "release end:$this,activeRunnableCount=${activeRunnableCount.get()}")
     }
@@ -85,7 +95,9 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
      */
     @JvmOverloads
     fun <O : Any> registerOuterObserver(observer: O, clz: Class<out O> = observer.javaClass) {
-        outerObserverMap[clz] = observer
+        synchronized(outerLock) {
+            outerObserverMap[clz] = observer
+        }
     }
 
     /**
@@ -95,19 +107,21 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
      */
     @Suppress("UNCHECKED_CAST")
     fun <O> getOuterRegisterObserver(observerClz: Class<O>): O? {
-        val outerOb = outerObserverMap[observerClz] as? O
-        // 若未找到, 则寻找已注入的父类,兼容匿名内部类情况
-        // 但建议注册匿名内部类创建的 outerObserver 时, 明确指定其所属 class 类型
-        if (outerOb == null) {
-            for ((_, v) in outerObserverMap) {
-                if (observerClz.isInstance(v)) {
-                    val o = v as? O
-                    outerObserverMap[observerClz] = o
-                    return o
+        synchronized(outerLock) {
+            val outerOb = outerObserverMap[observerClz] as? O
+            // 若未找到, 则寻找已注入的父类,兼容匿名内部类情况
+            // 但建议注册匿名内部类创建的 outerObserver 时, 明确指定其所属 class 类型
+            if (outerOb == null) {
+                for ((_, v) in outerObserverMap) {
+                    if (observerClz.isInstance(v)) {
+                        val o = v as? O
+                        outerObserverMap[observerClz] = o
+                        return o
+                    }
                 }
             }
+            return outerOb
         }
-        return outerOb
     }
 
     /**

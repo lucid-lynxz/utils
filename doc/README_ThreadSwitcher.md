@@ -30,4 +30,10 @@ val outerObserver = object : ISimpleObserver {
 // 4. 将 outerObserver 注册到 switcher 中
 // 之后sdk回调 innerObserver 时, switcher 会搜索对应的 outerObserver, 并进行线程切换及触发  
 switcher.registerOuterObserver(outerObserver, ISimpleObserver::class.java)
+
+// 5. 停止switcher
+switcher.deactive()
+
+// 6. 吃饭持有的observer引用
+switcher.release()
 ```

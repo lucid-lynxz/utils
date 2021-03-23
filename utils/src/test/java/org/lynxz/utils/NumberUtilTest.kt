@@ -4,6 +4,9 @@ import org.junit.Assert
 import org.junit.Test
 
 class NumberUtilTest {
+    /**
+     * 字符串转整数
+     * */
     @Test
     fun str2IntTest() {
         val defaultValue = 0
@@ -71,7 +74,6 @@ class NumberUtilTest {
         )
         Assert.assertEquals(3.8f, "3.8".convert2Float(defaultValue), delta)
         Assert.assertEquals(3.8f, "3.8f".convert2Float(defaultValue), delta)
-        Assert.assertEquals(3.8f, "3.8f".convert2Float(defaultValue), delta)
         Assert.assertEquals(1000000f, "1e6".convert2Float(defaultValue), delta)
     }
 
@@ -125,7 +127,8 @@ class NumberUtilTest {
     @Test
     fun double2fixStrTest() {
         Assert.assertEquals("3.65", 3.654321.double2fixStr())
-        Assert.assertEquals("3", 3.001234.double2fixStr(retainZeroTail = false))
+        Assert.assertEquals("3", 3.001234.double2fixStr(retainZeroTail = false)) // 不保留小数结尾的0占位符
+        Assert.assertEquals("3.00", 3.001234.double2fixStr(retainZeroTail = true))
         Assert.assertEquals("3.7", 3.654321.double2fixStr(1))
         Assert.assertEquals("4", 3.654321.double2fixStr(0))
         Assert.assertEquals("3.0", 3.004321.double2fixStr(1))

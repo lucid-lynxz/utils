@@ -24,5 +24,6 @@ dependencies {
 ### 各工具类方法说明
 
 * [FileUtil](doc/README_Fileutil.md) 文件的创建/删除/复制/移动/读/写等功能
+* [NumberExt](doc/README_NumberExt.md) 字符串与数字的转换扩展函数
 * [ThreadSwitcher](doc/README_ThreadSwitcher.md) observer线程自动切换工具类
 * AssetUtil 待添加
