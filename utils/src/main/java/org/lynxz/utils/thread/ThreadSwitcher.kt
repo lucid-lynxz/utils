@@ -167,7 +167,12 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
                                 TAG,
                                 "obUI method start:${method.name},obUui=${obOuter.hashCode()},activeRunnableCount=$activeRunnableCount,${this.hashCode()}"
                             )
-                            method.invoke(obOuter, finalArgs)
+
+                            when (args?.size ?: 0) {
+                                0 -> method.invoke(obOuter)
+                                1 -> method.invoke(obOuter, finalArgs!![0])
+                                else -> method.invoke(obOuter, finalArgs)
+                            }
                         } catch (e: IllegalAccessException) {
                             e.printStackTrace()
                         } catch (e: InvocationTargetException) {
