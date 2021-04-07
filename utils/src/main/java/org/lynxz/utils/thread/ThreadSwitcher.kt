@@ -35,8 +35,7 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getMainLooper()) {
     //指定线程handler
-    private val targetHandler: BizHandler =
-        BizHandler(targetLooper)
+    private val targetHandler: BizHandler = BizHandler(targetLooper)
 
     private val outerLock = Object()
 
@@ -45,7 +44,7 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
     private val outerObserverMap: MutableMap<Class<*>, Any?> = mutableMapOf()
 
     // 内部生成的观察者,运行在sdk库回调线程
-    private val innerObserverMap: MutableMap<Class<*>, Any> = mutableMapOf()
+    private val innerObserverMap: MutableMap<String, Any> = mutableMapOf()
 
     // 正在运行的Runnable个数
     private val activeRunnableCount = AtomicInteger(0)
@@ -128,22 +127,29 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
      * 从缓存中提取自动生成的指定类型的observer
      */
     @Suppress("UNCHECKED_CAST")
-    fun <I> getCachedInnerObserver(observerClz: Class<I>) = innerObserverMap[observerClz] as? I
+    fun <I> getCachedInnerObserver(observerClz: Class<I>, tag: String? = null) =
+        innerObserverMap[getFullClassNameWithTag(observerClz, tag)] as? I
 
     /**
      * 创建wrapper/presenter等内部使用的observer实现类,回调时自动切换主线程运行相同用户注入的同类型observer的相同方法
      * 若需要在BL回调时进行定制操作(非仅仅切换线程),则自行 new *observer
-     * P.S. 每种类型的observer只会创建一个,优先从缓存中获取
+     * P.S. 每种类型的observer默认只会创建一个,优先从缓存中获取, 若需要创建多个,需要指定其tag值
      *
      * @param recookArgsAction 允许在切换线程前对方法实参进行二次处理
+     * @param forceRecreate true-强制重新创建 false-优先从缓存提取
+     * @param shouldCached true-创建后需要存入缓存 false-不缓存
+     * @param tag 额外的tag信息
      */
     fun <I : Any> generateInnerObserverImpl(
         observerClz: Class<I>,
-        recookArgsAction: RecookInfo<Method?, Array<out Any?>?>? = null
+        recookArgsAction: RecookInfo<Method?, Array<out Any?>?>? = null,
+        forceRecreate: Boolean = false,
+        shouldCached: Boolean = true,
+        tag: String? = null
     ): I {
         // 优先从缓存中提取,若无再创建
         val cachedInnerObserver = getCachedInnerObserver(observerClz)
-        if (cachedInnerObserver != null) {
+        if (cachedInnerObserver != null && !forceRecreate) {
             return cachedInnerObserver
         }
 
@@ -190,7 +196,9 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
                 runOnTargetThread(runnable)
             }
         }).also { obInner ->
-            innerObserverMap[observerClz] = obInner
+            shouldCached.yes {
+                innerObserverMap[getFullClassNameWithTag(observerClz, tag)] = obInner
+            }
         }
     }
 
@@ -247,5 +255,16 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
                 LoggerUtil.w(TAG, "ThreadSwitcher created $targetLooper,$this")
             }
         }
+    }
+
+    /**
+     * 获取对象的完整类名(包名+类名)
+     */
+    fun getFullClassNameWithTag(obj: Any?, tag: String? = null): String {
+        val tTag = if (tag.isNullOrBlank()) "" else tag.trim()
+        if (obj == null) return tTag
+        return if (obj is Class<*>) {
+            "${obj.canonicalName}$tTag"
+        } else "${obj.javaClass.canonicalName}$tTag"
     }
 }
