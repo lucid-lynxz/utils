@@ -8,6 +8,7 @@ import org.lynxz.utils.no
 import org.lynxz.utils.otherwise
 import org.lynxz.utils.reflect.ProxyUtil.OnFunInvokeCallback
 import org.lynxz.utils.reflect.ProxyUtil.generateDefaultImplObj
+import org.lynxz.utils.reflect.ReflectUtil
 import org.lynxz.utils.thread.ThreadSwitcher.Companion.newInstance
 import org.lynxz.utils.yes
 import java.lang.ref.WeakReference
@@ -19,7 +20,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * @version 1.0
+ * @version 1.1
  * description: 简化回调方法自动切主换线程的工具类:
  * 1. 通过动态代理创建 interface 观察者实例(innerObserver), 用于各sdk,回调在sdk的库线程中
  * 2. 通过 [registerOuterObserver] 注入外部观察者(outerObserver)
@@ -32,6 +33,9 @@ import java.util.concurrent.atomic.AtomicInteger
  * 5. 获取外部(通常是UI层)注入的observer: [getOuterRegisterObserver]
  * 6. 在指定的线程执行runnable: [runOnTargetThread]
  * 7. 停用转换器: [deActive]
+ * 8. 外部自行实现 innerObserver 时:
+ * -    a. 注册到缓存中: [addInnerObserverToCache]
+ * -    b. 自行进行线程切换: [invokeOuterObserverOnTargetThread]
  */
 open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getMainLooper()) {
     //指定线程handler
@@ -208,6 +212,45 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
     ): I {
         require(Modifier.isInterface(observerClz.modifiers)) { "请传入接口(observerClz),其他类型无效" }
         return generateDefaultImplObj(observerClz, callback)!!
+    }
+
+    /**
+     * 若外部自行实现了某个 innerObserver,可将其添加到缓存中, 后续通过 [getCachedInnerObserver] 获取
+     * 注意: 外部自行实现时,主线程切换功能也要同步实现
+     * */
+    fun <I> addInnerObserverToCache(
+        innerObserver: I,
+        observerClz: Class<I>,
+        tag: String? = null
+    ) {
+        innerObserverMap[getFullClassNameWithTag(observerClz, tag)] = innerObserver!!
+    }
+
+    /**
+     * 回调 outerObserver 对应的方法
+     * */
+    fun <I> invokeOuterObserverOnTargetThread(
+        observerClz: Class<I>,
+        obj: Any = object : Any() {},
+        vararg args: Any?
+    ) {
+        // 获取 obj 所在的方法, 并转换为 observerClz 中的对应 Method 对象
+        val enclosingMethod = obj.javaClass.enclosingMethod ?: return
+        val methodName = enclosingMethod.name
+        val parameterTypes = enclosingMethod.parameterTypes
+        val paraSize = parameterTypes.size
+        val tMethod: Method?
+        tMethod = if (paraSize == 0) {
+            ReflectUtil.getDeclaredMethod(observerClz, methodName)
+        } else {
+            ReflectUtil.getDeclaredMethod(observerClz, methodName, *parameterTypes)
+        }
+
+        // 获取 outerObserver
+        val outerObserver = getOuterRegisterObserver(observerClz) ?: return
+
+        // 在目标线程中回调 outerObserver
+        runOnTargetThread { tMethod?.invoke(outerObserver, *args) }
     }
 
     /**

@@ -34,6 +34,27 @@ switcher.registerOuterObserver(outerObserver, ISimpleObserver::class.java)
 // 5. 停止switcher
 switcher.deactive()
 
-// 6. 吃饭持有的observer引用
+// 6. 释放持有的observer引用
 switcher.release()
+```
+
+###  innerObserver 也可以由调用方等三方自行实现,通过以下方式注册及切换线程
+
+```kotlin
+//  自行实现 innerObserver
+val innerObserver = object : ISimpleObserver {
+    override fun onInvoke(msg: String?) {
+        // 自行进行线程切换
+        switcher.invokeOuterObserverOnTargetThread(
+            ISimpleObserver::class.java,
+            object : Any() {},
+            msg
+        )
+    }
+}
+
+// 添加自行实现的 innerObserver 到缓存
+switcher.addInnerObserverToCache(innerObserver, ISimpleObserver::class.java)
+
+// outerObserver 的创建及注册参照上面默认方式
 ```
