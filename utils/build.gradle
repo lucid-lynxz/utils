@@ -5,7 +5,7 @@ plugins {
 //    id 'com.novoda.bintray-release'
 }
 
-group='com.github.lucid-lynxz' // 指定group:com.github.<用户名>
+group = 'com.github.lucid-lynxz' // 指定group:com.github.<用户名>
 
 android {
     compileSdkVersion androidCompileSdkVersion
@@ -37,23 +37,22 @@ android {
 
 dependencies {
     testImplementation(test.junit)
+    testImplementation(libs.kotlinLib)
 
+    androidTestImplementation(libs.kotlinLib)
     androidTestImplementation(test.junitExtX)
     androidTestImplementation(test.espressoX)
     androidTestImplementation(test.testRunnerX)
 
-//    compileOnly(libs.kotlinLib)
-    implementation(libs.kotlinLib)
-    implementation(libs.annotationX)
-    // 创建抽象类的实现类,本库暂不集成,由用户自行创建
-    // implementation(libs.javassist)
+    compileOnly(libs.kotlinLib)
     implementation(libs.appcompatX)
+
+//    implementation(libs.annotationX)
 //    implementation(libs.googleMaterial)
 //    implementation(libs.constraintLayoutX)
 
-    androidTestImplementation(test.junitExtX)
-    androidTestImplementation(test.espressoX)
-    androidTestImplementation(test.testRunnerX)
+    // 创建抽象类的实现类,本库暂不集成,由用户自行创建
+    // implementation(libs.javassist)
 }
 
 //publish {
@@ -86,7 +85,7 @@ task sourcesJar(type: Jar) {
 }
 
 task javadoc(type: Javadoc) {
-    failOnError  false
+    failOnError false
     source = android.sourceSets.main.java.sourceFiles
     classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
     classpath += configurations.compile
