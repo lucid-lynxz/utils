@@ -104,9 +104,15 @@ public class ScreenUtil {
     private static float designHeight = DEFAULT_DESIGN_HEIGHT;
     private static ScreenOrientation designOrientation = DEFAULT_ORIENTATION;
     private static float appDensity;
-    private static float appScaledDensity;
+    private static boolean enableScaleDensityChanged = true; // 是否允许字体大小随系统缩放设置而缩放
+    private static float appScaledDensity; // 字体缩放比例
     private static DisplayMetrics appDisplayMetrics;
-    private static int barHeight;
+    private static int barHeight; // 状态栏高度
+    /**
+     * true-严格模式: 只有实现了接口 {@link Adaptable} 的
+     * activity 才进行屏幕适配 false-宽松模式(默认): 只要不是实现接口
+     * {@link DonotAdapt} 的 activity 都进行适配
+     */
     private static boolean isStrictMode = false;
     /**
      * 小米系统判定
@@ -117,18 +123,18 @@ public class ScreenUtil {
 
     /**
      * 设置默认分辨率适配(667dp * 360dp) 宽度适配, 非严格模式(未实现接口 {@link DonotAdapt} 的activity都进行适配)
-     * 请参考: {@link #init(Application, ScreenOrientation, float, float, boolean)}
+     * 请参考: {@link #init(Application, ScreenOrientation, float, float, boolean, boolean)}
      */
     public static void init(@NonNull Application application) {
-        init(application, DEFAULT_ORIENTATION, DEFAULT_DESIGN_WIDTH, DEFAULT_DESIGN_HEIGHT, false);
+        init(application, DEFAULT_ORIENTATION, DEFAULT_DESIGN_WIDTH, DEFAULT_DESIGN_HEIGHT, false, enableScaleDensityChanged);
     }
 
     /**
      * 指定要适配的分辨率 宽度适配, 非严格模式(未实现接口 {@link DonotAdapt} 的activity都进行适配) 请参考:
-     * {@link #init(Application, ScreenOrientation, float, float, boolean)}
+     * {@link #init(Application, ScreenOrientation, float, float, boolean, boolean)}
      */
     public static void init(@NonNull Application application, float designWidthDp, float designHeightDp) {
-        init(application, DEFAULT_ORIENTATION, designWidthDp, designHeightDp, false);
+        init(application, DEFAULT_ORIENTATION, designWidthDp, designHeightDp, false, enableScaleDensityChanged);
     }
 
     /**
@@ -141,7 +147,7 @@ public class ScreenUtil {
      *                       {@link DonotAdapt} 的 activity 都进行适配
      */
     public static void init(@NonNull final Application application, ScreenOrientation orientation, float designWidthDp,
-                            float designHeightDp, boolean strictMode) {
+                            float designHeightDp, boolean strictMode, boolean scaleDensityChanged) {
         isStrictMode = strictMode;
         designWidth = designWidthDp;
         designHeight = designHeightDp;
@@ -155,6 +161,7 @@ public class ScreenUtil {
             // 初始化的时候赋值
             appDensity = appDisplayMetrics.density;
             appScaledDensity = appDisplayMetrics.scaledDensity;
+            enableFontScaleChange(scaleDensityChanged);
 
             // 自动在activity的 onCreate() 中设置宽度适配,若有需要改为高度适配请在 activity 中修改
             application.registerActivityLifecycleCallbacks(new EmptyActivityLifecycleCallback() {
@@ -181,16 +188,27 @@ public class ScreenUtil {
                 @Override
                 public void onConfigurationChanged(@NonNull Configuration newConfig) {
                     // 字体改变后,将appScaledDensity重新赋值
-                    // if (newConfig != null && newConfig.fontScale > 0) {
-                    // appScaledDensity =
-                    // application.getResources().getDisplayMetrics().scaledDensity;
-                    // }
+                    if (newConfig.fontScale > 0 && scaleDensityChanged) {
+                        appScaledDensity = application.getResources().getDisplayMetrics().scaledDensity;
+                    }
                 }
 
                 @Override
                 public void onLowMemory() {
                 }
             });
+        }
+    }
+
+    /**
+     * 启用系统字体缩放设置
+     *
+     * @param enable 是否允许字体随系统设置进行缩放
+     */
+    public static void enableFontScaleChange(boolean enable) {
+        enableScaleDensityChanged = enable;
+        if (!enable) {
+            appScaledDensity = 1.0f;
         }
     }
 
