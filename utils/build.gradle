@@ -45,7 +45,8 @@ dependencies {
 //    compileOnly(libs.kotlinLib)
     implementation(libs.kotlinLib)
     implementation(libs.annotationX)
-    implementation(libs.javassist)
+    // 创建抽象类的实现类,本库暂不集成,由用户自行创建
+    // implementation(libs.javassist)
     implementation(libs.appcompatX)
 //    implementation(libs.googleMaterial)
 //    implementation(libs.constraintLayoutX)

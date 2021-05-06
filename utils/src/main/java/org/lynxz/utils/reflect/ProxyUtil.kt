@@ -1,8 +1,7 @@
 package org.lynxz.utils.reflect
 
-import javassist.util.proxy.MethodHandler
-import javassist.util.proxy.ProxyFactory
-import org.lynxz.utils.log.LoggerUtil
+import org.lynxz.utils.reflect.ProxyUtil.customProxyGenerator
+import org.lynxz.utils.reflect.ProxyUtil.generateAbsClassInstance
 import org.lynxz.utils.reflect.ProxyUtil.generateDefaultImplObj
 import org.lynxz.utils.reflect.ReflectUtil.generateDefaultTypeValue
 import java.lang.reflect.Method
@@ -11,7 +10,9 @@ import java.lang.reflect.Proxy
 
 /**
  * 代理工具类
- * 通过 [generateDefaultImplObj] 创建指定class的代理实现类,支持接口/抽象类和普通类型
+ * 1. 通过 [generateDefaultImplObj] 创建指定class的代理实现类,支持接口和普通类型
+ * 2. 对于抽象类型,为了精简库大小, 由用户自行实现,可参考 [generateAbsClassInstance]
+ * 3. 用户通过 [customProxyGenerator] 扩展可支持的实现类生成器(主要是抽象类)
  */
 object ProxyUtil {
     private const val TAG = "ProxyUtil"
@@ -19,20 +20,37 @@ object ProxyUtil {
     /**
      * 方法调用信息
      */
-    abstract class OnFunInvokeCallback {
+    interface IFuncInvokeCallback {
         /**
          * @param method        方法信息
          * @param returnObj     返回值,可能null
          * @param argGroupIndex 实参列表序号, 负数表示无效(未知序号或者方法无参)
          * @param args          方法参数列表, 可空
          */
-        abstract fun onFuncInvoke(
+        fun onFuncInvoke(
             method: Method,
             returnObj: Any?,
             argGroupIndex: Int,
             args: Array<out Any?>?
         )
+
+
+        /**
+         * 用户自定义的实现类生成器
+         * */
+        interface ICustomGenerator {
+            /**
+             * 返回pair中的boolean数据为 true 时表示有效,否则走默认实现
+             * */
+            fun <T> generate(
+                clz: Class<T>?,
+                callback: IFuncInvokeCallback? = null
+            ): Pair<Boolean, T?>
+        }
     }
+
+    var customProxyGenerator: IFuncInvokeCallback.ICustomGenerator? = null
+
 
     /**
      * 创建某个接口/普通类/抽象类/枚举类的实例
@@ -42,7 +60,14 @@ object ProxyUtil {
      * @param callback 对接口或抽象方法有效, 在对应方法被触发时回调该callback
      * @return 若实例化失败, 则返回null
      */
-    fun <T> generateDefaultImplObj(clz: Class<T>?, callback: OnFunInvokeCallback? = null): T? {
+    fun <T> generateDefaultImplObj(clz: Class<T>?, callback: IFuncInvokeCallback? = null): T? {
+        // 优先尝试用户自定义的生成器
+        val customImpl = customProxyGenerator?.generate(clz, callback)
+        if (customImpl?.first == true) {
+            return customImpl.second
+        }
+
+        // 使用默认生成方法
         val modifier = clz?.modifiers ?: 0
         return when {
             clz == null -> null
@@ -64,7 +89,7 @@ object ProxyUtil {
      * @param clz      需要创建的接口类型class
      * @param callback 接口方法被调用时触发回调
      */
-    private fun <T> generateInterfaceImpl(clz: Class<T>, callback: OnFunInvokeCallback?): T? {
+    private fun <T> generateInterfaceImpl(clz: Class<T>, callback: IFuncInvokeCallback?): T? {
         val modifier = clz.modifiers
         if (!Modifier.isInterface(modifier)) {
             return null
@@ -130,40 +155,36 @@ object ProxyUtil {
 
     /**
      * 新建一个抽象类对象实例
+     * 暂不实现,若有需要,则由用户自行设置 [customProxyGenerator] 来支持, 可参考注释掉的代码通过 javassist 库来实现
      *
      * @param clz 需要创建的抽象类Class
      */
     private fun <T> generateAbsClassInstance(
         clz: Class<T>,
-        callback: OnFunInvokeCallback?
+        callback: IFuncInvokeCallback?
     ): T? {
-        // 需要导入javassist库: implementation("org.javassist:javassist:3.27.0-GA")
-        val modifier = clz.modifiers
-        if (!Modifier.isAbstract(modifier)) {
-            return null
-        }
-        val factory = ProxyFactory()
-        factory.superclass = clz
-        factory.setFilter { method: Method -> Modifier.isAbstract(method.modifiers) }
-        val handler =
-            MethodHandler { _: Any?, thisMethod: Method, _: Method?, args: Array<Any?>? ->
-                // 默认实现, 基本类型boolean返回false,其他基本类型返回0, String类型返回"",其他引用类型返回null
-                val returnType = thisMethod.returnType
-                val isPrimitive = returnType.isPrimitive
-                LoggerUtil.w(
-                    TAG,
-                    " MethodHandler invoke method:${thisMethod.name}, returnType=$returnType,isPrimitive=$isPrimitive"
-                )
-                val retObj = generateDefaultTypeValue(returnType)
-                callback?.onFuncInvoke(thisMethod, retObj, -1, args)
-                retObj
-            }
-        var returnObj: Any? = null
-        try {
-            returnObj = factory.create(arrayOfNulls(0), arrayOfNulls(0), handler)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        return if (clz.isInstance(returnObj)) returnObj as T? else null
+        throw IllegalArgumentException("not support abstract class")
+//        // 需要导入javassist库: implementation("org.javassist:javassist:3.27.0-GA")
+//        // import javassist.util.proxy.MethodHandler
+//        // import javassist.util.proxy.ProxyFactory
+//        val factory = ProxyFactory()
+//        factory.superclass = clz
+//        factory.setFilter { method: Method -> Modifier.isAbstract(method.modifiers) }
+//        val handler =
+//            MethodHandler { _: Any?, thisMethod: Method, _: Method?, args: Array<Any?>? ->
+//                // 默认实现, 基本类型boolean返回false,其他基本类型返回0, String类型返回"",其他引用类型返回null
+//                val returnType = thisMethod.returnType
+//                val isPrimitive = returnType.isPrimitive
+//                val retObj = generateDefaultTypeValue(returnType)
+//                callback?.onFuncInvoke(thisMethod, retObj, -1, args)
+//                retObj
+//            }
+//        var returnObj: Any? = null
+//        try {
+//            returnObj = factory.create(arrayOfNulls(0), arrayOfNulls(0), handler)
+//        } catch (e: Exception) {
+//            e.printStackTrace()
+//        }
+//        return if (clz.isInstance(returnObj)) returnObj as T? else null
     }
 }

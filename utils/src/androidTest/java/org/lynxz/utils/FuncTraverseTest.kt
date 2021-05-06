@@ -51,7 +51,7 @@ class FuncTraverseTest {
                 perUtil.writeMethodList2Log(it.validMethodList)
                     .deleteLogFile(FunTraversePersistenceUtil.LOG_METHOD_ARG_INDEX)
             }
-            .addBeforeFuncInvokeAction(object : ProxyUtil.OnFunInvokeCallback() {
+            .addBeforeFuncInvokeAction(object : ProxyUtil.IFuncInvokeCallback {
                 override fun onFuncInvoke(
                     method: Method,
                     returnObj: Any?,

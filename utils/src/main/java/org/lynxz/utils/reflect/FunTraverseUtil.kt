@@ -3,7 +3,7 @@ package org.lynxz.utils.reflect
 import android.text.TextUtils
 import org.lynxz.utils.log.LoggerUtil
 import org.lynxz.utils.reflect.FunTraverseUtil.Companion.getMethodSignature
-import org.lynxz.utils.reflect.ProxyUtil.OnFunInvokeCallback
+import org.lynxz.utils.reflect.ProxyUtil.IFuncInvokeCallback
 import org.lynxz.utils.reflect.ReflectUtil.generateDefaultTypeValue
 import org.lynxz.utils.reflect.ReflectUtil.generateDefaultTypeValueList
 import org.lynxz.utils.reflect.ReflectUtil.getSpecialDeclaredMethods
@@ -76,8 +76,8 @@ class FunTraverseUtil<T> private constructor(private val targetObj: T) {
      * value: 该方法所使用的的形参组合序号列表
      */
     private var methodArgGroupIndexMap = mutableMapOf<String, MutableList<Int>?>()
-    private val beforeInvokeActionSet = HashSet<OnFunInvokeCallback>() // 方法执行前触发调用
-    private val afterInvokeActionSet = HashSet<OnFunInvokeCallback>() // 方法执行后触发调用
+    private val beforeInvokeActionSet = HashSet<IFuncInvokeCallback>() // 方法执行前触发调用
+    private val afterInvokeActionSet = HashSet<IFuncInvokeCallback>() // 方法执行后触发调用
 
     init {
         targetClz = targetObj!!::class.java as Class<T>
@@ -219,7 +219,7 @@ class FunTraverseUtil<T> private constructor(private val targetObj: T) {
     /**
      * 设置方法执行前hook动作
      */
-    fun addBeforeFuncInvokeAction(beforeFuncInvokeAction: OnFunInvokeCallback?): FunTraverseUtil<T> {
+    fun addBeforeFuncInvokeAction(beforeFuncInvokeAction: IFuncInvokeCallback?): FunTraverseUtil<T> {
         if (beforeFuncInvokeAction != null) {
             beforeInvokeActionSet.add(beforeFuncInvokeAction)
         }
@@ -229,7 +229,7 @@ class FunTraverseUtil<T> private constructor(private val targetObj: T) {
     /**
      * 设置方法执行后hook操作
      */
-    fun addAfterFuncInvokeAction(afterFuncInvokeAction: OnFunInvokeCallback?): FunTraverseUtil<T> {
+    fun addAfterFuncInvokeAction(afterFuncInvokeAction: IFuncInvokeCallback?): FunTraverseUtil<T> {
         if (afterFuncInvokeAction != null) {
             afterInvokeActionSet.add(afterFuncInvokeAction)
         }
@@ -469,7 +469,7 @@ class FunTraverseUtil<T> private constructor(private val targetObj: T) {
     }
 
     private fun runHookAction(
-        action: OnFunInvokeCallback?,
+        action: IFuncInvokeCallback?,
         method: Method,
         returnObj: Any?,
         argGroupIndex: Int,

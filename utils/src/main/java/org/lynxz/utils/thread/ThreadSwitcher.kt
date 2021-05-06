@@ -6,7 +6,7 @@ import org.lynxz.utils.functions.RecookInfo
 import org.lynxz.utils.log.LoggerUtil
 import org.lynxz.utils.no
 import org.lynxz.utils.otherwise
-import org.lynxz.utils.reflect.ProxyUtil.OnFunInvokeCallback
+import org.lynxz.utils.reflect.ProxyUtil.IFuncInvokeCallback
 import org.lynxz.utils.reflect.ProxyUtil.generateDefaultImplObj
 import org.lynxz.utils.reflect.ReflectUtil
 import org.lynxz.utils.thread.ThreadSwitcher.Companion.newInstance
@@ -158,7 +158,7 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
         }
 
         // 创建新的inner observer,并缓存
-        return generateInterfaceImpl(observerClz, object : OnFunInvokeCallback() {
+        return generateInterfaceImpl(observerClz, object : IFuncInvokeCallback {
             override fun onFuncInvoke(
                 method: Method,
                 returnObj: Any?,
@@ -173,11 +173,7 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
                     isActive.get().yes {
                         try {
                             val activeRunnableCount = activeRunnableCount.incrementAndGet()
-                            LoggerUtil.d(
-                                TAG,
-                                "obUI method start:${method.name},obUui=${obOuter.hashCode()},activeRunnableCount=$activeRunnableCount,${this.hashCode()}"
-                            )
-
+                            // LoggerUtil.d(TAG, "obUI method start:${method.name},obUui=${obOuter.hashCode()},activeRunnableCount=$activeRunnableCount,${this.hashCode()}")
                             when (args?.size ?: 0) {
                                 0 -> method.invoke(obOuter)
                                 1 -> method.invoke(obOuter, finalArgs!![0])
@@ -189,10 +185,7 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
                             e.printStackTrace()
                         }
                         val activeRunnableCount = activeRunnableCount.decrementAndGet()
-                        LoggerUtil.d(
-                            TAG,
-                            "obUI method end:${method.name},activeRunnableCount=$activeRunnableCount,${this.hashCode()}"
-                        )
+                        // LoggerUtil.d(TAG,"obUI method end:${method.name},activeRunnableCount=$activeRunnableCount,${this.hashCode()}")
                     }
                 }
 
@@ -208,7 +201,7 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
 
     private fun <I> generateInterfaceImpl(
         observerClz: Class<I>,
-        callback: OnFunInvokeCallback?
+        callback: IFuncInvokeCallback?
     ): I {
         require(Modifier.isInterface(observerClz.modifiers)) { "请传入接口(observerClz),其他类型无效" }
         return generateDefaultImplObj(observerClz, callback)!!
