@@ -30,17 +30,20 @@ import androidx.annotation.Nullable;
 import org.jetbrains.annotations.NotNull;
 import org.lynxz.utils.log.LoggerUtil;
 import org.lynxz.utils.observers.EmptyActivityLifecycleCallback;
+import org.lynxz.utils.reflect.ProxyUtil;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.HashSet;
 import java.util.Properties;
+import java.util.Set;
 
 /**
  * V1.0 2019.03.12 通过修改系统参数来适配android设备尺寸,并提供了 dp/px 互转方法 以及 获取状态栏/导航条高度及沉浸式等方法
- * V1.1 2021.05.09 增加禁止字体随系统字体缩放而变化功能
+ * V1.1 2021.05.09 增加禁止字体随系统字体缩放而变化功能, 支持剔除指定页面的适配
  * 注意: 若项目中引用了第三方UI库,且UI库的设计尺寸与当前项目不同,则可能会导致适配问题(本适配工具未处理这种情况)
  * <p>
  * 另外,本工具类还提供了状态栏透明及切换状态栏文字图案颜色模式的方法
@@ -62,6 +65,7 @@ import java.util.Properties;
  * <p>
  * 2.[可选,已默认指定宽度适配] 若某个activity不想使用默认的适配参数,则请实现接口 {@link Adaptable} 接口;<br>
  * 3.若想指定某个Activity不做屏幕适配,则请实现接口 {@link DonotAdapt} 接口;<br>
+ * 4.若不适配依赖库中的页面,则在对应页面创建前,调用 {@link #addExcludeActivity(String...)} 进行套剔除;<br>
  * <p>
  * 以下为状态栏相关操作: <br>
  * 1. 设置状态栏背景色透明: {@link #setStatusBarTranslucent(Activity)};<br>
@@ -121,6 +125,7 @@ public class ScreenUtil {
     private static float appScaledDensity; // 字体缩放比例
     private static boolean enableScaleDensityChanged = true; // 是否允许字体大小随系统缩放设置而缩放
     private static int barHeight; // 状态栏高度
+    private static Set<String> excludeAdaptActivities; // 不进行适配的页面,用于三方库剔除三方库页面等场景
 
     /**
      * 是否是严格模式
@@ -208,11 +213,52 @@ public class ScreenUtil {
     }
 
     /**
+     * 添加不进行屏幕适配的页面信息,需要在页面创建前进行设置
+     * 可填写activity完整路径,或者添加其所在的包路径(该包下所有页面都不适配)
+     * 如: org.lynxz.ui.SomeActivity  或者 org.lynxz.ui
+     *
+     * @param activityPath 页面路径,填写完整路径
+     */
+    public static void addExcludeActivity(@NotNull String... activityPath) {
+        if (excludeAdaptActivities == null) {
+            synchronized (ScreenUtil.class) {
+                if (excludeAdaptActivities == null) {
+                    excludeAdaptActivities = new HashSet<>();
+                }
+            }
+        }
+
+        for (String path : activityPath) {
+            excludeAdaptActivities.add(path.trim());
+        }
+    }
+
+    /**
      * 判断页面是否需要适配
      */
     private static boolean shouldAdapted(Activity activity) {
         if (activity instanceof DonotAdapt) {
             return false;
+        }
+        // 若指定了不适配的页面信息, 则遍历查找
+        int excludeSize = excludeAdaptActivities == null ? 0 : excludeAdaptActivities.size();
+        if (excludeSize > 0) {
+            String fullClassName = ProxyUtil.INSTANCE.getFullClassName(activity); // 完整类路径(包名+类名)
+            int length = fullClassName == null ? 0 : fullClassName.length();
+            if (length >= 1) {
+                String simpleClassName = ProxyUtil.INSTANCE.getSimpleClassName(activity);
+                int endIndex = length - simpleClassName.length() - 1; // 删除最后的点
+                String pkgName = fullClassName.substring(0, endIndex); // 包名
+                // 优先按照完成路径进行一次查找,未命中再进行全量遍历搜索
+                if (excludeAdaptActivities.contains(fullClassName) || excludeAdaptActivities.contains(pkgName)) {
+                    return false;
+                }
+                for (String excludeName : excludeAdaptActivities) {
+                    if (fullClassName.startsWith(excludeName)) {
+                        return false;
+                    }
+                }
+            }
         }
 
         return !isStrictMode || activity instanceof Adaptable;

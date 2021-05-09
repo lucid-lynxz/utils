@@ -187,4 +187,24 @@ object ProxyUtil {
 //        }
 //        return if (clz.isInstance(returnObj)) returnObj as T? else null
     }
+
+    /**
+     * 获取对象的完整类名(包名+类名)
+     */
+    fun getFullClassName(obj: Any?): String? {
+        if (obj == null) return ""
+        return if (obj is Class<*>) {
+            obj.canonicalName
+        } else obj.javaClass.canonicalName
+    }
+
+    /**
+     * 获取对象的完整类名(仅类名,不包含包名)
+     */
+    fun getSimpleClassName(obj: Any?): String {
+        if (obj == null) return ""
+        return if (obj is Class<*>) {
+            obj.simpleName
+        } else obj.javaClass.simpleName
+    }
 }
