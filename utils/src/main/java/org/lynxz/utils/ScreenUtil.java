@@ -6,6 +6,7 @@ import android.app.Application;
 import android.content.ComponentCallbacks;
 import android.content.Context;
 import android.content.res.Configuration;
+import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Rect;
@@ -22,10 +23,13 @@ import android.view.Window;
 import android.view.WindowManager;
 
 import androidx.annotation.ColorInt;
+import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import org.jetbrains.annotations.NotNull;
 import org.lynxz.utils.log.LoggerUtil;
+import org.lynxz.utils.observers.EmptyActivityLifecycleCallback;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -35,15 +39,21 @@ import java.lang.reflect.Method;
 import java.util.Properties;
 
 /**
- * V1.0 2019.3.12 通过修改系统参数来适配android设备尺寸,并提供了 dp/px 互转方法 以及 获取状态栏/导航条高度及沉浸式等方法
+ * V1.0 2019.03.12 通过修改系统参数来适配android设备尺寸,并提供了 dp/px 互转方法 以及 获取状态栏/导航条高度及沉浸式等方法
+ * V1.1 2021.05.09 增加禁止字体随系统字体缩放而变化功能
  * 注意: 若项目中引用了第三方UI库,且UI库的设计尺寸与当前项目不同,则可能会导致适配问题(本适配工具未处理这种情况)
  * <p>
  * 另外,本工具类还提供了状态栏透明及切换状态栏文字图案颜色模式的方法
  * </p>
- *
  * <p>
+ * 今日头条屏幕适配方案:
+ * 一. 原理:
+ * app中使用的 dp, sp 等单位最终都是通过 {@link android.util.TypedValue#applyDimension(int, float, DisplayMetrics)} 方法进行转换的,
+ * 因此我们可以通过修改其转换系数来达到适配不通屏幕尺寸的目的, 其中:
+ * - dp: 通过 {@link DisplayMetrics#density} 系数
+ * - sp: 通过 {@link DisplayMetrics#scaledDensity} 系数
  * <p>
- * 今日头条屏幕适配方案的使用方法: <br>
+ * 二. 使用方法: <br>
  * 1. 在 application 类的 onCreate() 中执行: {@link #init(Application)},app就会以默认的
  * 360dp*667dp 来适配布局;<br>
  * 若需要指定其他尺寸,则请执行:{@link #init(Application, float, float)}
@@ -58,17 +68,15 @@ import java.util.Properties;
  * 2. 修改状态栏背景色: {@link #setStatusBarColor(Activity, int)};<br>
  * 3.
  * 切换状态栏内容颜色模式(深色/浅色调):{@link #setStatusBarTextColorMode(Activity, boolean)};<br>
- * 4. 获取状态栏高度:{@link #getStatusBarHeight(Context)};<br>
- * 5. 获取底部导航栏高度: {@link #getNavigationBarHeight(Context)}<br>
+ * 4. 获取状态栏高度:{@link #getStatusBarHeightPx(Context)};<br>
+ * 5. 获取底部导航栏高度: {@link #getNavigationBarHeightPx(Context)}<br>
  * <p>
  * 其他方法说明:<br>
  * 1. dp转px: {@link #dp2px(Context, int)};<br>
  * 2. px转dp: {@link #px2dp(Context, float)}<br>
  * 3. 获取view在屏幕上的坐标: {@link #getViewScreenLocation(View)};<br>
- * 4. 获取屏幕宽高(px):{@link #getScreenWidth(Context)}
- * {@link #getScreenHeight(Context)};<br>
- * 5. 屏幕截图: {@link #snapShotWithStatusBar(Activity)}
- * {@link #snapShotWithoutStatusBar(Activity)}<br>
+ * 4. 获取屏幕宽高(px):{@link #getScreenWidthPx(Context)}, {@link #getScreenHeightPx(Context, boolean)};<br>
+ * 5. 屏幕截图: {@link #snapShot(Activity, boolean)}<br>
  * <p>
  * 参考文章:
  * <ol>
@@ -81,48 +89,52 @@ import java.util.Properties;
  * </ol>
  * <p>
  * 其他知识:
- *
  * <pre>
  *      dpi = Math.sqrt(w*w+h*h)/屏幕尺寸 (屏幕宽高单位:px,尺寸单位:inch)
  *      density = dpi / 160;
  *      px = density * dp;
  *      px = dp * (dpi / 160);
  *
- * 查看屏幕尺寸和分辨率密度
- * adb shell wm size
- * adb shell wm density
+ * 查看屏幕尺寸和分辨率密度的adb命令
+ *  adb shell wm size
+ *  adb shell wm density
  * </pre>
  */
+@Keep
 public class ScreenUtil {
-    private static final ScreenOrientation DEFAULT_ORIENTATION = ScreenOrientation.WIDTH;
-    private static final float DEFAULT_DESIGN_WIDTH = 360f;
-    private static final float DEFAULT_DESIGN_HEIGHT = 667f;
     private static final int MIUI_V60_VERSION_CODE = 4;
     private static final int MIUI_V70_VERSION_CODE = 5;
-    // 美工设计图的方向及宽高尺寸,单位dp,作为各 activity 的默认适配参数
-    private static float designWidth = DEFAULT_DESIGN_WIDTH;
-    private static float designHeight = DEFAULT_DESIGN_HEIGHT;
+
+    // 默认的设计稿适配信息, 宽度适配,宽 360dp, 高 667dp
+    private static final ScreenOrientation DEFAULT_ORIENTATION = ScreenOrientation.WIDTH;
+    private static final float DEFAULT_DESIGN_WIDTH = 360f; // 默认的设计稿宽度,单位:dp
+    private static final float DEFAULT_DESIGN_HEIGHT = 667f; // 默认的设计稿高度,单位:dp
+
+    // 实际设计图的适配方向及宽高尺寸,单位dp,作为各 activity 的默认适配参数
     private static ScreenOrientation designOrientation = DEFAULT_ORIENTATION;
-    private static float appDensity;
-    private static boolean enableScaleDensityChanged = true; // 是否允许字体大小随系统缩放设置而缩放
-    private static float appScaledDensity; // 字体缩放比例
+    private static float designWidthDp = DEFAULT_DESIGN_WIDTH;
+    private static float designHeightDp = DEFAULT_DESIGN_HEIGHT;
+
+    // 系统比例参数
     private static DisplayMetrics appDisplayMetrics;
+    private static float appDensity;
+    private static float appScaledDensity; // 字体缩放比例
+    private static boolean enableScaleDensityChanged = true; // 是否允许字体大小随系统缩放设置而缩放
     private static int barHeight; // 状态栏高度
+
     /**
-     * true-严格模式: 只有实现了接口 {@link Adaptable} 的
-     * activity 才进行屏幕适配 false-宽松模式(默认): 只要不是实现接口
-     * {@link DonotAdapt} 的 activity 都进行适配
+     * 是否是严格模式
+     * true-严格模式: 只有实现接口 {@link Adaptable} 的 activity 才进行适配
+     * false-宽松模式(默认): 不实现接口 {@link DonotAdapt} 的 activity 都进行适配
      */
     private static boolean isStrictMode = false;
     /**
-     * 小米系统判定
-     * <p>
-     * MIUI V6 为: 4 MIUI V7 为: 5
+     * 小米系统判定 MIUI V6 为: 4 MIUI V7 为: 5
      */
     private static int sMiUIVersionCode = -1;
 
     /**
-     * 设置默认分辨率适配(667dp * 360dp) 宽度适配, 非严格模式(未实现接口 {@link DonotAdapt} 的activity都进行适配)
+     * 初始化,使用默认适配参数: 360dp*667dp/宽度适配/非严格模式/允许字体缩放
      * 请参考: {@link #init(Application, ScreenOrientation, float, float, boolean, boolean)}
      */
     public static void init(@NonNull Application application) {
@@ -130,54 +142,49 @@ public class ScreenUtil {
     }
 
     /**
-     * 指定要适配的分辨率 宽度适配, 非严格模式(未实现接口 {@link DonotAdapt} 的activity都进行适配) 请参考:
-     * {@link #init(Application, ScreenOrientation, float, float, boolean, boolean)}
+     * 指定要适配的分辨率, 宽度适配/非严格模式
+     * 请参考: {@link #init(Application, ScreenOrientation, float, float, boolean, boolean)}
      */
-    public static void init(@NonNull Application application, float designWidthDp, float designHeightDp) {
-        init(application, DEFAULT_ORIENTATION, designWidthDp, designHeightDp, false, enableScaleDensityChanged);
+    public static void init(@NonNull Application application, float widthDp, float heightDp) {
+        init(application, DEFAULT_ORIENTATION, widthDp, heightDp, false, enableScaleDensityChanged);
     }
 
     /**
-     * 设置分辨率适配
+     * 设置适配参数
      *
-     * @param designWidthDp  美工设计图默认屏幕宽度,单位:dp
-     * @param designHeightDp 美工设计图默认屏幕高度,单位:dp
-     * @param strictMode     是否使用严格模式 true-严格模式: 只有实现了接口 {@link Adaptable} 的
-     *                       activity 才进行屏幕适配 false-宽松模式(默认): 只要不是实现接口
-     *                       {@link DonotAdapt} 的 activity 都进行适配
+     * @param widthDp    美工设计图屏幕宽度,单位:dp
+     * @param heightDp   美工设计图屏幕高度,单位:dp
+     * @param strictMode 是否使用严格模式
+     *                   true-严格模式: 只有实现接口 {@link Adaptable} 的 activity 才进行适配
+     *                   false-宽松模式(默认): 不实现接口 {@link DonotAdapt} 的 activity 都进行适配
      */
-    public static void init(@NonNull final Application application, ScreenOrientation orientation, float designWidthDp,
-                            float designHeightDp, boolean strictMode, boolean scaleDensityChanged) {
-        isStrictMode = strictMode;
-        designWidth = designWidthDp;
-        designHeight = designHeightDp;
+    public static void init(@NonNull final Application application,
+                            ScreenOrientation orientation,
+                            float widthDp,
+                            float heightDp,
+                            boolean strictMode,
+                            boolean scaleDensityChanged) {
         designOrientation = orientation;
+        designWidthDp = widthDp;
+        designHeightDp = heightDp;
+        isStrictMode = strictMode;
 
         // 获取application的DisplayMetrics
         appDisplayMetrics = application.getResources().getDisplayMetrics();
         // 获取状态栏高度
-        barHeight = getStatusBarHeight(application);
+        barHeight = getStatusBarHeightPx(application);
         if (appDensity == 0) {
             // 初始化的时候赋值
             appDensity = appDisplayMetrics.density;
-            appScaledDensity = appDisplayMetrics.scaledDensity;
+            appScaledDensity = appDisplayMetrics.scaledDensity; // 默认是跟 density 相等, 可通过系统设置字体缩放大小进行改变
             enableFontScaleChange(scaleDensityChanged);
 
-            // 自动在activity的 onCreate() 中设置宽度适配,若有需要改为高度适配请在 activity 中修改
+            // 自动在activity的 onCreate() 中设置默认方向(宽度)适配,若有需要改为高度适配请在 activity 中修改
             application.registerActivityLifecycleCallbacks(new EmptyActivityLifecycleCallback() {
-                // @Override
-                // public void onActivityCreated(Activity activity, Bundle savedInstanceState) {
-                //
-                // }
-
                 @Override
-                public void onActivityResumed(Activity activity) {
-                    super.onActivityResumed(activity);
-                    if (activity instanceof DonotAdapt) {
-                        return;
-                    }
-
-                    if (!isStrictMode || activity instanceof Adaptable) {
+                public void onActivityCreated(@NotNull Activity activity, @Nullable Bundle savedInstanceState) {
+                    super.onActivityCreated(activity, savedInstanceState);
+                    if (shouldAdapted(activity)) {
                         setActivityAdaptParam(activity);
                     }
                 }
@@ -201,20 +208,32 @@ public class ScreenUtil {
     }
 
     /**
+     * 判断页面是否需要适配
+     */
+    private static boolean shouldAdapted(Activity activity) {
+        if (activity instanceof DonotAdapt) {
+            return false;
+        }
+
+        return !isStrictMode || activity instanceof Adaptable;
+    }
+
+    /**
      * 启用系统字体缩放设置
+     * 请在 {@link #init(Application)} 初始化前设置
      *
      * @param enable 是否允许字体随系统设置进行缩放
      */
     public static void enableFontScaleChange(boolean enable) {
         enableScaleDensityChanged = enable;
         if (!enable) {
-            appScaledDensity = 1.0f;
+            appScaledDensity = appDensity;
         }
     }
 
     private static float getActivityDensity(Activity activity) {
-        float width = designWidth;
-        float height = designHeight;
+        float width = designWidthDp;
+        float height = designHeightDp;
         ScreenOrientation orientation = designOrientation;
 
         if (activity instanceof Adaptable) {
@@ -243,54 +262,54 @@ public class ScreenUtil {
             targetDensity = appDisplayMetrics.heightPixels / height;
             // targetDensity = getScreenHeightWithNavigationBar(activity) / height;
         }
-
         return targetDensity;
     }
 
     /**
-     * 设置activity的适配参数 默认都统一使用 init() 初始化时指定的设计图参数, 若想单独指定某个Activity的适配参数,则让该
-     * Activity 实现接口 {@link Adaptable} 即可; targetDensity targetScaledDensity
-     * targetDensityDpi 这三个参数是统一修改过后的值
+     * 设置activity的适配参数 默认都统一使用 init() 初始化时指定的设计图参数
+     * 若想单独指定某个Activity的适配参数,则让该 Activity 实现接口 {@link Adaptable} 即可
+     * targetDensity targetScaledDensity targetDensityDpi 这三个参数是统一修改过后的值
      */
-    private static void setActivityAdaptParam(@Nullable Activity activity) {
-        if (activity == null) {
-            return;
-        }
+    private static void setActivityAdaptParam(@NotNull Activity activity) {
         float targetDensity = getActivityDensity(activity);
         float targetScaledDensity = targetDensity * (appScaledDensity / appDensity);
         int targetDensityDpi = (int) (160 * targetDensity);
-        /*
-         * 最后在这里将修改过后的值赋给系统参数 只修改Activity的density值
-         */
-        DisplayMetrics activityDisplayMetrics = activity.getResources().getDisplayMetrics();
+        // 最后在这里将修改过后的值赋给系统参数 只修改Activity的density值
+        Resources resources = activity.getResources();
+        DisplayMetrics activityDisplayMetrics = resources.getDisplayMetrics();
 
         activityDisplayMetrics.density = targetDensity;
         activityDisplayMetrics.densityDpi = targetDensityDpi;
         activityDisplayMetrics.scaledDensity = targetScaledDensity;
+//        activityDisplayMetrics.scaledDensity = enableScaleDensityChanged ? targetScaledDensity : appDensity;
+//        LoggerUtil.w("xxx", "targetDensity=" + targetDensity + "," + targetScaledDensity + "," + appScaledDensity + "," + appDensity);
         // 如果不希望字体大小随系统设置的字体大小变化而变化,可以将其指定为确定值
-        // activityDisplayMetrics.scaledDensity = targetDensity;
+        // activityDisplayMetrics.scaledDensity = appScaledDensity;
+
+//        Configuration configuration = resources.getConfiguration();
+//        if (!enableScaleDensityChanged) {
+//            configuration.fontScale = 1.0f;
+//        }
+//        resources.updateConfiguration(configuration, activityDisplayMetrics);
     }
 
-    /**
-     * dp转px
-     */
-    public static int dp2px(Context context, int dip) {
+    public static int dp2px(Context context, int dp) {
         final float scale = context.getResources().getDisplayMetrics().density;
-        return (int) (dip * scale + 0.5f);
+        return (int) (dp * scale + 0.5f);
     }
 
     /**
      * 根据手机的分辨率从 px 的单位 转成为 dp
      */
     public static int px2dp(Context context, float pxValue) {
-        final float scale = context.getResources().getDisplayMetrics().density;
-        return (int) (pxValue / scale + 0.5f);
+        final float density = context.getResources().getDisplayMetrics().density;
+        return (int) (pxValue / density + 0.5f);
     }
 
     /**
      * 获取屏幕宽度(px)
      */
-    public static int getScreenWidth(Context context) {
+    public static int getScreenWidthPx(Context context) {
         WindowManager windowmanager = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
         if (windowmanager == null) {
             return 0;
@@ -303,29 +322,20 @@ public class ScreenUtil {
 
     /**
      * 得到屏幕高度(px,不包含底部导航条高度)
+     *
+     * @param withNavigationBar 是否包含底部导航条高度
      */
-    public static int getScreenHeight(Context context) {
+    public static int getScreenHeightPx(Context context, boolean withNavigationBar) {
         WindowManager windowmanager = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
         if (windowmanager == null) {
             return 0;
         }
         DisplayMetrics dm = new DisplayMetrics();
-        windowmanager.getDefaultDisplay().getMetrics(dm); // 不包含导航栏
-        // windowmanager.getDefaultDisplay().getRealMetrics(dm); // 包含底部导航条高度
-        return dm.heightPixels;
-    }
-
-    /**
-     * 得到屏幕高度(px)
-     */
-    public static int getScreenHeightWithNavigationBar(Context context) {
-        WindowManager windowmanager = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
-        if (windowmanager == null) {
-            return 0;
+        if (withNavigationBar) {
+            windowmanager.getDefaultDisplay().getRealMetrics(dm); // 包含底部导航条高度
+        } else {
+            windowmanager.getDefaultDisplay().getMetrics(dm); // 不包含导航栏
         }
-        DisplayMetrics dm = new DisplayMetrics();
-        // windowmanager.getDefaultDisplay().getMetrics(dm); // 不包含导航栏
-        windowmanager.getDefaultDisplay().getRealMetrics(dm); // 包含底部导航条高度
         return dm.heightPixels;
     }
 
@@ -340,35 +350,24 @@ public class ScreenUtil {
     }
 
     /**
-     * 获取当前屏幕截图，包含状态栏
+     * 获取当前屏幕截图
+     *
+     * @param withoutStatusBar true-不包含状态栏 false-包含状态栏截图
      */
-    public static Bitmap snapShotWithStatusBar(Activity activity) {
+    public static Bitmap snapShot(Activity activity, boolean withoutStatusBar) {
         View view = activity.getWindow().getDecorView();
         view.setDrawingCacheEnabled(true);
         view.buildDrawingCache();
         Bitmap bmp = view.getDrawingCache();
-        int width = getScreenWidth(activity);
-        int height = getScreenHeight(activity);
-        Bitmap bp = Bitmap.createBitmap(bmp, 0, 0, width, height);
-        view.destroyDrawingCache();
-        return bp;
-    }
-
-    /**
-     * 获取当前屏幕截图，不包含状态栏
-     */
-    public static Bitmap snapShotWithoutStatusBar(Activity activity) {
-        View view = activity.getWindow().getDecorView();
-        view.setDrawingCacheEnabled(true);
-        view.buildDrawingCache();
-        Bitmap bmp = view.getDrawingCache();
-        Rect frame = new Rect();
-        activity.getWindow().getDecorView().getWindowVisibleDisplayFrame(frame);
-        int statusBarHeight = frame.top;
-
-        int width = getScreenWidth(activity);
-        int height = getScreenHeight(activity);
-        Bitmap bp = Bitmap.createBitmap(bmp, 0, statusBarHeight, width, height - statusBarHeight);
+        int width = getScreenWidthPx(activity);
+        int height = getScreenHeightPx(activity, false);
+        int y = 0;
+        if (withoutStatusBar) {
+            Rect frame = new Rect();
+            activity.getWindow().getDecorView().getWindowVisibleDisplayFrame(frame);
+            y = frame.top; // 扣掉状态栏高度
+        }
+        Bitmap bp = Bitmap.createBitmap(bmp, 0, y, width, height - y);
         view.destroyDrawingCache();
         return bp;
     }
@@ -376,9 +375,9 @@ public class ScreenUtil {
     // ------- 状态栏修改相关操作 -------
 
     /**
-     * 获取状态栏高度
+     * 获取状态栏高度,单位:px
      */
-    public static int getStatusBarHeight(Context context) {
+    public static int getStatusBarHeightPx(Context context) {
         int result = 0;
         int resourceId = context.getResources().getIdentifier("status_bar_height", "dimen", "android");
         if (resourceId > 0) {
@@ -388,9 +387,9 @@ public class ScreenUtil {
     }
 
     /**
-     * 获取手机底部导航条高度
+     * 获取手机底部导航条高度,单位:px
      */
-    public static int getNavigationBarHeight(Context context) {
+    public static int getNavigationBarHeightPx(Context context) {
         int var1 = 0;
         int var2 = context.getResources().getIdentifier("navigation_bar_height", "dimen", "android");
         if (var2 > 0) {
@@ -415,7 +414,7 @@ public class ScreenUtil {
             window.addFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
             View view = new View(activity);
             ViewGroup.LayoutParams params = new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
-                    getStatusBarHeight(activity));
+                    getStatusBarHeightPx(activity));
             view.setLayoutParams(params);
             view.setBackgroundColor(color);
 
@@ -423,7 +422,7 @@ public class ScreenUtil {
             decorView.addView(view);
 
             ViewGroup contentView = activity.findViewById(android.R.id.content);
-            contentView.setPadding(0, getStatusBarHeight(activity), 0, 0);
+            contentView.setPadding(0, getStatusBarHeightPx(activity), 0, 0);
         }
     }
 
@@ -551,7 +550,7 @@ public class ScreenUtil {
     public static void setAndroidNativeStatusBarColorMode(Activity activity, boolean darkMode) {
         View decor = activity.getWindow().getDecorView();
         if (darkMode) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (isAndroidMOrAbove()) {
                 decor.setSystemUiVisibility(
                         View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
             }
@@ -582,7 +581,7 @@ public class ScreenUtil {
                 result = true;
 
                 // 开发版 7.7.13 及以后版本采用了系统API，旧方法无效但不会报错，所以两个方式都要加上
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && getMiUIVersionCode() >= MIUI_V70_VERSION_CODE) {
+                if (isAndroidMOrAbove() && getMiUIVersionCode() >= MIUI_V70_VERSION_CODE) {
                     if (darkMode) {
                         activity.getWindow().getDecorView().setSystemUiVisibility(
                                 View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
@@ -659,13 +658,13 @@ public class ScreenUtil {
 
         /**
          * 指定适配的设计图宽度尺寸(dp),若返回0或负数,则表示使用app默认适配宽度尺寸
-         * 请参考:{@link #init(Application, ScreenOrientation, float, float, boolean)}
+         * 请参考:{@link #init(Application, ScreenOrientation, float, float, boolean, boolean)}
          */
         int getAdaptWidthDp();
 
         /**
          * 指定适配的设计图高度尺寸(dp),若返回0或负数,则表示使用app默认适配高度尺寸
-         * 请参考:{@link #init(Application, ScreenOrientation, float, float, boolean)}
+         * 请参考:{@link #init(Application, ScreenOrientation, float, float, boolean, boolean)}
          */
         int getAdaptHeightDp();
     }
@@ -675,43 +674,5 @@ public class ScreenUtil {
      */
     public interface DonotAdapt {
 
-    }
-
-    public static class EmptyActivityLifecycleCallback implements Application.ActivityLifecycleCallbacks {
-
-        @Override
-        public void onActivityCreated(Activity activity, Bundle savedInstanceState) {
-
-        }
-
-        @Override
-        public void onActivityStarted(Activity activity) {
-
-        }
-
-        @Override
-        public void onActivityResumed(Activity activity) {
-
-        }
-
-        @Override
-        public void onActivityPaused(Activity activity) {
-
-        }
-
-        @Override
-        public void onActivityStopped(Activity activity) {
-
-        }
-
-        @Override
-        public void onActivitySaveInstanceState(Activity activity, Bundle outState) {
-
-        }
-
-        @Override
-        public void onActivityDestroyed(Activity activity) {
-
-        }
     }
 }
