@@ -16,7 +16,8 @@ object AssetUtil {
      *          兼容了写法 a/b/ (结尾分隔符), 会删除结尾的分隔符
      */
     fun isExist(context: Context, name: String, parentRelPath: String = "") =
-        if (name.isBlank()) false else context.assets.list(parentRelPath)?.contains(name) ?: false
+            if (name.isBlank()) false else context.assets.list(FileUtil.processPath(parentRelPath, true))?.contains(name)
+                    ?: false
 
     /**
      * 判断指定路径的asset文件是否是非空目录
@@ -101,11 +102,11 @@ object AssetUtil {
      * @return 是否复制成功
      */
     fun copy(
-        context: Context,
-        destDiPath: String,
-        assetFilePath: String,
-        isDir: Boolean = false,
-        forceCopyEvenExist: Boolean = false
+            context: Context,
+            destDiPath: String,
+            assetFilePath: String,
+            isDir: Boolean = false,
+            forceCopyEvenExist: Boolean = false
     ): Boolean {
         val assetName = FileUtil.getName(assetFilePath)
         val destFilePath = FileUtil.processPath("${destDiPath}/$assetName")

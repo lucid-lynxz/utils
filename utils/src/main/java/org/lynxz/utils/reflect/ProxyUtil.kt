@@ -7,6 +7,7 @@ import org.lynxz.utils.reflect.ReflectUtil.generateDefaultTypeValue
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.lang.reflect.Proxy
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * 代理工具类
@@ -28,10 +29,10 @@ object ProxyUtil {
          * @param args          方法参数列表, 可空
          */
         fun onFuncInvoke(
-            method: Method,
-            returnObj: Any?,
-            argGroupIndex: Int,
-            args: Array<out Any?>?
+                method: Method,
+                returnObj: Any?,
+                argGroupIndex: Int,
+                args: Array<out Any?>?
         )
 
 
@@ -43,8 +44,8 @@ object ProxyUtil {
              * 返回pair中的boolean数据为 true 时表示有效,否则走默认实现
              * */
             fun <T> generate(
-                clz: Class<T>?,
-                callback: IFuncInvokeCallback? = null
+                    clz: Class<T>?,
+                    callback: IFuncInvokeCallback? = null
             ): Pair<Boolean, T?>
         }
     }
@@ -83,6 +84,9 @@ object ProxyUtil {
      * */
     private fun <T> generateEnumImpl(clz: Class<T>): T? = clz.enumConstants?.firstOrNull()
 
+    // 用于区分动态代理生成的不同实例
+    private val interfaceInstanceIndex = AtomicInteger(0)
+
     /**
      * 创建指定接口的默认实现
      *
@@ -95,19 +99,21 @@ object ProxyUtil {
             return null
         }
 
+        val index = interfaceInstanceIndex.getAndIncrement()
+        val objHashCode = Object().hashCode()
         val obj = Proxy.newProxyInstance(
-            clz.classLoader, arrayOf<Class<*>>(clz)
-        ) { _: Any?, method: Method, args: Array<Any?>? ->
+                clz.classLoader, arrayOf<Class<*>>(clz)
+        ) { proxy: Any, method: Method, args: Array<Any?>? ->
             // 默认实现, 基本类型boolean返回false,其他基本类型返回0, String类型返回"",其他引用类型返回null
             val returnType = method.returnType
             val isPrimitive = returnType.isPrimitive
-            var retValue = generateDefaultTypeValue(returnType)
+            // var retValue = generateDefaultTypeValue(returnType)
             // LoggerUtil.d(TAG, " generateDefaultInterfaceImpl invoke method:" + method.getName() + ", returnType=" + returnType + ",retValue=" + retValue + ",isPrimitive=" + isPrimitive);
-            if ("toString" == method.name) {
-//                val retStr = retValue as String?
-//                if (retStr.isNullOrBlank()) {
-                retValue = "instanceOf:${clz.simpleName}"
-//                }
+            val retValue = when (method.name) {
+                "toString" -> "${clz.simpleName}_${proxy.javaClass.simpleName}@${index}_${hashCode()}"
+                "equals" -> this == args?.get(0) ?: false
+                "hashCode" -> objHashCode
+                else -> generateDefaultTypeValue(returnType)
             }
             callback?.onFuncInvoke(method, retValue, -1, args)
             retValue
@@ -143,7 +149,7 @@ object ProxyUtil {
                 }
                 try {
                     returnObj =
-                        if (paraSize == 0) constructor.newInstance() else constructor.newInstance(*args)
+                            if (paraSize == 0) constructor.newInstance() else constructor.newInstance(*args)
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
@@ -160,8 +166,8 @@ object ProxyUtil {
      * @param clz 需要创建的抽象类Class
      */
     private fun <T> generateAbsClassInstance(
-        clz: Class<T>,
-        callback: IFuncInvokeCallback?
+            clz: Class<T>,
+            callback: IFuncInvokeCallback?
     ): T? {
         throw IllegalArgumentException("not support abstract class")
 //        // 需要导入javassist库: implementation("org.javassist:javassist:3.27.0-GA")
