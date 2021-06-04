@@ -6,8 +6,12 @@ import org.lynxz.utils.reflect.ProxyUtil.generateDefaultImplObj
 import org.lynxz.utils.reflect.ReflectUtil.generateDefaultTypeValue
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
-import java.lang.reflect.Proxy
-import java.util.concurrent.atomic.AtomicInteger
+
+/**
+ * @param obj 具体数据对象
+ * @param enabled obj是否生效,false-丢弃
+ * */
+data class EnabledResult<T>(var obj: T?, var enabled: Boolean = true)
 
 /**
  * 代理工具类
@@ -24,17 +28,17 @@ object ProxyUtil {
     interface IFuncInvokeCallback {
         /**
          * @param method        方法信息
-         * @param returnObj     返回值,可能null
+         * @param returnObj     当前返回值,可能null
          * @param argGroupIndex 实参列表序号, 负数表示无效(未知序号或者方法无参)
          * @param args          方法参数列表, 可空
+         * @return  FuncInvokeResult 要求其 result.returnObj 属性类型与 returnObj 参数类型一致,否则不生效
          */
         fun onFuncInvoke(
                 method: Method,
                 returnObj: Any?,
                 argGroupIndex: Int,
                 args: Array<out Any?>?
-        )
-
+        ): EnabledResult<Any>?
 
         /**
          * 用户自定义的实现类生成器
@@ -46,7 +50,7 @@ object ProxyUtil {
             fun <T> generate(
                     clz: Class<T>?,
                     callback: IFuncInvokeCallback? = null
-            ): Pair<Boolean, T?>
+            ): EnabledResult<T>?
         }
     }
 
@@ -64,8 +68,8 @@ object ProxyUtil {
     fun <T> generateDefaultImplObj(clz: Class<T>?, callback: IFuncInvokeCallback? = null): T? {
         // 优先尝试用户自定义的生成器
         val customImpl = customProxyGenerator?.generate(clz, callback)
-        if (customImpl?.first == true) {
-            return customImpl.second
+        if (customImpl?.enabled == true) {
+            return customImpl.obj
         }
 
         // 使用默认生成方法
@@ -84,40 +88,37 @@ object ProxyUtil {
      * */
     private fun <T> generateEnumImpl(clz: Class<T>): T? = clz.enumConstants?.firstOrNull()
 
-    // 用于区分动态代理生成的不同实例
-    private val interfaceInstanceIndex = AtomicInteger(0)
-
     /**
-     * 创建指定接口的默认实现
+     * 创建指定单接口的默认实现
      *
      * @param clz      需要创建的接口类型class
      * @param callback 接口方法被调用时触发回调
      */
+    @Suppress("UNCHECKED_CAST")
     private fun <T> generateInterfaceImpl(clz: Class<T>, callback: IFuncInvokeCallback?): T? {
         val modifier = clz.modifiers
         if (!Modifier.isInterface(modifier)) {
             return null
         }
 
-        val index = interfaceInstanceIndex.getAndIncrement()
-        val objHashCode = Object().hashCode()
-        val obj = Proxy.newProxyInstance(
-                clz.classLoader, arrayOf<Class<*>>(clz)
-        ) { proxy: Any, method: Method, args: Array<Any?>? ->
-            // 默认实现, 基本类型boolean返回false,其他基本类型返回0, String类型返回"",其他引用类型返回null
-            val returnType = method.returnType
-            val isPrimitive = returnType.isPrimitive
-            // var retValue = generateDefaultTypeValue(returnType)
-            // LoggerUtil.d(TAG, " generateDefaultInterfaceImpl invoke method:" + method.getName() + ", returnType=" + returnType + ",retValue=" + retValue + ",isPrimitive=" + isPrimitive);
-            val retValue = when (method.name) {
-                "toString" -> "${clz.simpleName}_${proxy.javaClass.simpleName}@${index}_${hashCode()}"
-                "equals" -> this == args?.get(0) ?: false
-                "hashCode" -> objHashCode
-                else -> generateDefaultTypeValue(returnType)
-            }
-            callback?.onFuncInvoke(method, retValue, -1, args)
-            retValue
-        }
+        val obj = RecookInvocationHandler(interfaceClsArray = arrayOf(clz), onMethodInvokedHook = callback).newProxyInstance()
+
+//        val objHashCode = Object().hashCode()
+//        val obj = Proxy.newProxyInstance(clz.classLoader, arrayOf<Class<*>>(clz)) { proxy: Any, method: Method, args: Array<Any?>? ->
+//            // 默认实现, 基本类型boolean返回false,其他基本类型返回0, String类型返回"",其他引用类型返回null
+//            val returnType = method.returnType
+//            val isPrimitive = returnType.isPrimitive
+//            // var retValue = generateDefaultTypeValue(returnType)
+//            // LoggerUtil.d(TAG, " generateDefaultInterfaceImpl invoke method:" + method.getName() + ", returnType=" + returnType + ",retValue=" + retValue + ",isPrimitive=" + isPrimitive);
+//            val retValue = when (method.name) {
+//                "toString" -> "${clz.simpleName}_${proxy.javaClass.simpleName}@${hashCode()}"
+//                "equals" -> this == args?.get(0) ?: false
+//                "hashCode" -> objHashCode
+//                else -> generateDefaultTypeValue(returnType)
+//            }
+//            callback?.onFuncInvoke(method, retValue, -1, args)
+//            retValue
+//        }
         return if (clz.isInstance(obj)) obj as T else null
     }
 
@@ -126,6 +127,7 @@ object ProxyUtil {
      *
      * @param clz 需要创建的类型class
      */
+    @Suppress("UNCHECKED_CAST")
     private fun <T> generateClassInstance(clz: Class<T>): T? {
         val modifier = clz.modifiers
         if (Modifier.isInterface(modifier) || Modifier.isAbstract(modifier)) {

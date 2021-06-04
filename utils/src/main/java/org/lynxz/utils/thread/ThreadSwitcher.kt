@@ -6,6 +6,7 @@ import org.lynxz.utils.functions.RecookInfo
 import org.lynxz.utils.log.LoggerUtil
 import org.lynxz.utils.no
 import org.lynxz.utils.otherwise
+import org.lynxz.utils.reflect.EnabledResult
 import org.lynxz.utils.reflect.ProxyUtil.IFuncInvokeCallback
 import org.lynxz.utils.reflect.ProxyUtil.generateDefaultImplObj
 import org.lynxz.utils.reflect.ReflectUtil
@@ -102,7 +103,11 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
      * @param add true-添加observer  false-移除observer
      */
     @JvmOverloads
-    fun <O : Any> registerOuterObserver(observer: O, clz: Class<out O> = observer.javaClass, add: Boolean = true): Boolean {
+    fun <O : Any> registerOuterObserver(
+        observer: O,
+        clz: Class<out O> = observer.javaClass,
+        add: Boolean = true
+    ): Boolean {
         synchronized(outerLock) {
             val set = outerObserverMap[clz] ?: CopyOnWriteArraySet()
             outerObserverMap[clz] = set
@@ -143,7 +148,7 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
      */
     @Suppress("UNCHECKED_CAST")
     fun <I> getCachedInnerObserver(observerClz: Class<I>, tag: String? = null) =
-            innerObserverMap[getFullClassNameWithTag(observerClz, tag)] as? I
+        innerObserverMap[getFullClassNameWithTag(observerClz, tag)] as? I
 
     /**
      * 创建wrapper/presenter等内部使用的observer实现类,回调时自动切换主线程运行相同用户注入的同类型observer的相同方法
@@ -156,11 +161,11 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
      * @param tag 额外的tag信息
      */
     fun <I : Any> generateInnerObserverImpl(
-            observerClz: Class<I>,
-            recookArgsAction: RecookInfo<Method?, Array<out Any?>?>? = null,
-            forceRecreate: Boolean = false,
-            shouldCached: Boolean = true,
-            tag: String? = null
+        observerClz: Class<I>,
+        recookArgsAction: RecookInfo<Method?, Array<out Any?>?>? = null,
+        forceRecreate: Boolean = false,
+        shouldCached: Boolean = true,
+        tag: String? = null
     ): I {
         // 优先从缓存中提取,若无再创建
         val cachedInnerObserver = getCachedInnerObserver(observerClz)
@@ -171,19 +176,20 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
         // 创建新的inner observer,并缓存
         return generateInterfaceImpl(observerClz, object : IFuncInvokeCallback {
             override fun onFuncInvoke(
-                    method: Method,
-                    returnObj: Any?,
-                    argGroupIndex: Int,
-                    args: Array<out Any?>?
-            ) {
-                isActive.get().no { return }  // 已停止的线程切换器无需执行
+                method: Method,
+                returnObj: Any?,
+                argGroupIndex: Int,
+                args: Array<out Any?>?
+            ): EnabledResult<Any>? {
+                isActive.get().no { return null }  // 已停止的线程切换器无需执行
                 val finalArgs = recookArgsAction?.recook(method, args) ?: args // 对方法实参进行二次处理,如copy等
                 // 外部未注入observer时,不用抛线程
                 getOuterRegisterObserver(observerClz)?.forEach { outerObserver ->
                     val runnable = Runnable {
                         isActive.get().yes {
                             try {
-                                val activeRunnableCount = activeRunnableCount.incrementAndGet()
+                                activeRunnableCount.incrementAndGet()
+                                // val activeRunnableCount = activeRunnableCount.incrementAndGet()
                                 // LoggerUtil.d(TAG, "obUI method start:${method.name},obUui=${obOuter.hashCode()},activeRunnableCount=$activeRunnableCount,${this.hashCode()}")
                                 when (args?.size ?: 0) {
                                     0 -> method.invoke(outerObserver)
@@ -195,7 +201,8 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
                             } catch (e: InvocationTargetException) {
                                 e.printStackTrace()
                             }
-                            val activeRunnableCount = activeRunnableCount.decrementAndGet()
+                            activeRunnableCount.decrementAndGet()
+                            // val activeRunnableCount = activeRunnableCount.decrementAndGet()
                             // LoggerUtil.d(TAG,"obUI method end:${method.name},activeRunnableCount=$activeRunnableCount,${this.hashCode()}")
                         }
                     }
@@ -203,6 +210,7 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
                     // LoggerUtil.d(TAG, "isNeedSwitch=$isNeedSwitch, method=${method.name}")
                     runOnTargetThread(runnable)
                 }
+                return null
             }
         }).also { obInner ->
             shouldCached.yes {
@@ -212,8 +220,8 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
     }
 
     private fun <I> generateInterfaceImpl(
-            observerClz: Class<I>,
-            callback: IFuncInvokeCallback?
+        observerClz: Class<I>,
+        callback: IFuncInvokeCallback?
     ): I {
         require(Modifier.isInterface(observerClz.modifiers)) { "请传入接口(observerClz),其他类型无效" }
         return generateDefaultImplObj(observerClz, callback)!!
@@ -224,9 +232,9 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
      * 注意: 外部自行实现时,主线程切换功能也要同步实现
      * */
     fun <I : Any> addInnerObserverToCache(
-            innerObserver: I,
-            observerClz: Class<I>,
-            tag: String? = null
+        innerObserver: I,
+        observerClz: Class<I>,
+        tag: String? = null
     ) {
         innerObserverMap[getFullClassNameWithTag(observerClz, tag)] = innerObserver
     }
@@ -235,17 +243,16 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
      * 回调 outerObserver 对应的方法
      * */
     fun <I> invokeOuterObserverOnTargetThread(
-            observerClz: Class<I>,
-            obj: Any = object : Any() {},
-            vararg args: Any?
+        observerClz: Class<I>,
+        obj: Any = object : Any() {},
+        vararg args: Any?
     ) {
         // 获取 obj 所在的方法, 并转换为 observerClz 中的对应 Method 对象
         val enclosingMethod = obj.javaClass.enclosingMethod ?: return
         val methodName = enclosingMethod.name
         val parameterTypes = enclosingMethod.parameterTypes
         val paraSize = parameterTypes.size
-        val tMethod: Method?
-        tMethod = if (paraSize == 0) {
+        val tMethod: Method? = if (paraSize == 0) {
             ReflectUtil.getDeclaredMethod(observerClz, methodName)
         } else {
             ReflectUtil.getDeclaredMethod(observerClz, methodName, *parameterTypes)
@@ -255,9 +262,11 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
         val outerObserver = getOuterRegisterObserver(observerClz) ?: return
 
         // 在目标线程中回调 outerObserver
-        runOnTargetThread(Runnable {
-            tMethod?.invoke(outerObserver, *args)
-        })
+        outerObserver.forEach { ob ->
+            runOnTargetThread {
+                tMethod?.invoke(ob, *args)
+            }
+        }
     }
 
     /**
@@ -275,8 +284,9 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
      * 获取指定类型的 out observer,并封装为runnable, 最终执行 [invoke]
      */
     abstract class OuterObserverRunnable<O>(host: ThreadSwitcher) : Runnable {
+        @Suppress("UNCHECKED_CAST")
         private val observerClz: Class<O> =
-                (javaClass.genericSuperclass as ParameterizedType?)!!.actualTypeArguments[0] as Class<O>
+            (javaClass.genericSuperclass as ParameterizedType?)!!.actualTypeArguments[0] as Class<O>
         private val wrfHost: WeakReference<ThreadSwitcher> = WeakReference(host)
 
         abstract operator fun invoke(ob: O)

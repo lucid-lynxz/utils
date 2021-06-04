@@ -1,5 +1,6 @@
 package org.lynxz.utils.reflect
 
+import android.annotation.SuppressLint
 import org.lynxz.utils.reflect.ReflectUtil.closeAndroidPDialog
 import org.lynxz.utils.reflect.ReflectUtil.generateDefaultTypeValue
 import org.lynxz.utils.reflect.ReflectUtil.generateDefaultTypeValueList
@@ -56,11 +57,11 @@ object ReflectUtil {
      */
     @JvmStatic
     fun getDeclaredField(
-        classFullPath: String,
-        declaredFieldName: String,
-        updateFiled: Boolean = false,
-        ownObj: Any? = null,
-        newValue: Any? = null
+            classFullPath: String,
+            declaredFieldName: String,
+            updateFiled: Boolean = false,
+            ownObj: Any? = null,
+            newValue: Any? = null
     ): Field? {
         var field: Field? = null
         try {
@@ -85,9 +86,9 @@ object ReflectUtil {
      */
     @JvmStatic
     fun getDeclaredMethod(
-        targetObjOrClass: Any,
-        declaredMethodName: String,
-        vararg parameterTypes: Class<*>?
+            targetObjOrClass: Any,
+            declaredMethodName: String,
+            vararg parameterTypes: Class<*>?
     ): Method? {
         var tObjClz: Class<*>? = targetObjOrClass.javaClass
         if (targetObjOrClass is Class<*>) {
@@ -116,10 +117,10 @@ object ReflectUtil {
      */
     @JvmStatic
     fun getSpecialDeclaredMethods(
-        targetObjOrClass: Any,
-        methodNamePattern: String,
-        returnTypeName: String?,
-        vararg containModifiers: Int
+            targetObjOrClass: Any,
+            methodNamePattern: String,
+            returnTypeName: String?,
+            vararg containModifiers: Int
     ): List<Method> {
         val methodList: MutableList<Method> = ArrayList()
         var tObjClz: Class<*> = targetObjOrClass.javaClass
@@ -174,17 +175,17 @@ object ReflectUtil {
      */
     @JvmStatic
     fun getAllDeclareFieldsKVMap(classFullPath: String) =
-        HashMap<String, Any?>().apply {
-            getRefClass(classFullPath)?.let { clz ->
-                clz.declaredFields.forEach { field ->
-                    field.isAccessible = true
-                    try {
-                        put(field.name, field.get(clz))
-                    } catch (ignore: IllegalAccessException) {
+            HashMap<String, Any?>().apply {
+                getRefClass(classFullPath)?.let { clz ->
+                    clz.declaredFields.forEach { field ->
+                        field.isAccessible = true
+                        try {
+                            put(field.name, field.get(clz))
+                        } catch (ignore: IllegalAccessException) {
+                        }
                     }
                 }
             }
-        }
 
     /**
      * 反射获取指定类的所有成员变量名和值(包含从父类继承的变量)
@@ -193,22 +194,23 @@ object ReflectUtil {
      */
     @JvmStatic
     fun getAllFieldsKVMap(classFullPath: String) =
-        HashMap<String, Any?>().apply {
-            getRefClass(classFullPath)?.let { clz ->
-                clz.fields.forEach { field ->
-                    field.isAccessible = true
-                    try {
-                        put(field.name, field.get(clz))
-                    } catch (ignore: IllegalAccessException) {
+            HashMap<String, Any?>().apply {
+                getRefClass(classFullPath)?.let { clz ->
+                    clz.fields.forEach { field ->
+                        field.isAccessible = true
+                        try {
+                            put(field.name, field.get(clz))
+                        } catch (ignore: IllegalAccessException) {
+                        }
                     }
                 }
             }
-        }
 
     /**
      * 在 android P 可能会弹API兼容弹框, 每次app启动前可反射禁用掉
      * 目前在espresso用例执行前禁用, 避免弹框影响UI操作
      */
+    @SuppressLint("PrivateApi", "DiscouragedPrivateApi")
     @JvmStatic
     fun closeAndroidPDialog() {
         try {
@@ -241,64 +243,78 @@ object ReflectUtil {
     }
 
     /**
+     * 判断 obj 是否是 clz 的实例, 兼容基本类型
+     * */
+    @JvmStatic
+    fun isInstanceOf(obj: Any?, clz: Class<*>): Boolean {
+        if (clz.isPrimitive) {
+            if (obj == null) {
+                return false
+            }
+            return obj::class.javaPrimitiveType == clz
+        }
+        return clz.isInstance(obj)
+    }
+
+    /**
      * 获取指定类型对应的多个默认值,基本类型返回 false/true 或 0/-1/9999 等 , 其他引用类型返回空及默认实例
      */
     @JvmStatic
     fun generateDefaultTypeValueList(returnType: Class<*>) =
-        mutableListOf<Any?>().apply {
-            when (returnType) {
-                Void.TYPE -> add(null)
-                Boolean::class.java -> {
-                    add(false)
-                    add(true)
-                }
-                Byte::class.java -> {
-                    add(0.toByte())
-                    add(Byte.MAX_VALUE)
-                    add(Byte.MIN_VALUE)
-                }
-                Short::class.java -> {
-                    add(0.toShort())
-                    add(Short.MAX_VALUE)
-                    add(Short.MIN_VALUE)
-                }
-                Char::class.java -> {
-                    add(0.toChar())
-                    add(Char.MAX_VALUE)
-                    add(Char.MIN_VALUE)
-                }
-                Int::class.java -> {
-                    add(0)
-                    add(Int.MAX_VALUE)
-                    add(Int.MIN_VALUE)
-                }
-                Long::class.java -> {
-                    add(0L)
-                    add(Long.MAX_VALUE)
-                    add(Long.MIN_VALUE)
-                }
-                Float::class.java -> {
-                    add(0f)
-                    add(Float.MAX_VALUE)
-                    add(Float.MIN_VALUE)
-                }
-                Double::class.java -> {
-                    add(0.0)
-                    add(Double.MAX_VALUE)
-                    add(Double.MIN_VALUE)
-                }
-                String::class.java -> {
-                    add(null)
-                    add("")
-                    add("测试wsdf$%&【。。.】；$‘：’")
-                }
-                else -> {
-                    add(null)
-                    ProxyUtil.generateDefaultImplObj(returnType, null)?.let {
-                        add(it)
+            mutableListOf<Any?>().apply {
+                when (returnType) {
+                    Void.TYPE -> add(null)
+                    Boolean::class.java -> {
+                        add(false)
+                        add(true)
+                    }
+                    Byte::class.java -> {
+                        add(0.toByte())
+                        add(Byte.MAX_VALUE)
+                        add(Byte.MIN_VALUE)
+                    }
+                    Short::class.java -> {
+                        add(0.toShort())
+                        add(Short.MAX_VALUE)
+                        add(Short.MIN_VALUE)
+                    }
+                    Char::class.java -> {
+                        add(0.toChar())
+                        add(Char.MAX_VALUE)
+                        add(Char.MIN_VALUE)
+                    }
+                    Int::class.java -> {
+                        add(0)
+                        add(Int.MAX_VALUE)
+                        add(Int.MIN_VALUE)
+                    }
+                    Long::class.java -> {
+                        add(0L)
+                        add(Long.MAX_VALUE)
+                        add(Long.MIN_VALUE)
+                    }
+                    Float::class.java -> {
+                        add(0f)
+                        add(Float.MAX_VALUE)
+                        add(Float.MIN_VALUE)
+                    }
+                    Double::class.java -> {
+                        add(0.0)
+                        add(Double.MAX_VALUE)
+                        add(Double.MIN_VALUE)
+                    }
+                    String::class.java -> {
+                        add(null)
+                        add("")
+                        add("测试wsdf$%&【。。.】；$‘：’")
+                    }
+                    else -> {
+                        add(null)
+                        ProxyUtil.generateDefaultImplObj(returnType, null)?.let {
+                            add(it)
+                        }
                     }
                 }
             }
-        }
 }
 
