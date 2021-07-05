@@ -14,5 +14,9 @@ object LogLevel {
     const val NONE = 10 // 不打印任何级别日志
 
     @IntDef(VERBOSE, DEBUG, INFO, WARN, ERROR, NONE)
+    @Target(
+        AnnotationTarget.FIELD,
+        AnnotationTarget.VALUE_PARAMETER
+    )
     annotation class LogLevel1
 }

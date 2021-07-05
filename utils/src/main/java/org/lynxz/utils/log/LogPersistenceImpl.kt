@@ -1,5 +1,6 @@
 package org.lynxz.utils.log
 
+import android.os.Environment
 import android.util.Log
 import org.lynxz.utils.FileUtil
 import org.lynxz.utils.closeSafety
@@ -11,10 +12,13 @@ import java.util.*
 
 /**
  * log日志持久化实现类
- * 注意:本类内部若要打印日志,不能使用 [LoggerUtil],避免死循环
+ * 注意:本类内部若要打印日志,不能使用 [LoggerUtil] 进行日志打印,避免死循环
+ * 创建对象时,指定日志文件所在目录
  */
 class LogPersistenceImpl(
     private val logDirPath: String, // 日志所在目录绝对路径(外部存储路径),要求可读写
+    @LogLevel.LogLevel1
+    private var level: Int = LogLevel.WARN,// 设置要持久化的日志等级,大于等于该等级的才会进行持久化
     private val maxCacheLen: Int = 0, // 缓冲区大小,日志超过该长度则执行flush,0表示每条日志都立即写入文件
     private val logSizeLimit: Int = 1024 * 1024, // 单个日志文件大小限制,单位:b, 默认1Mb
     private val retainLineBreak: Boolean = false // 是否保留换行符(\n),默认移除
@@ -24,11 +28,8 @@ class LogPersistenceImpl(
         private const val LOG_SUFFIX = ".txt" // 日志文件后缀名
     }
 
-    @LogLevel.LogLevel1
-    private var level = LogLevel.NONE
-    private val tagSet = mutableSetOf<String>()
-
-    private var logPath = ""
+    private val tagSet = mutableSetOf<String>() // 需要持久化的tag信息
+    private var logPath = "" // 当前日志文件路径
     private var logFileWriter: FileWriter? = null
 
     // 缓冲区
@@ -103,7 +104,7 @@ class LogPersistenceImpl(
      * 将缓存的日志信息写入到文件中
      */
     @Synchronized
-    fun flush() {
+    override fun flush() {
         if (sbCache.isEmpty()) {
             return
         }
@@ -137,7 +138,7 @@ class LogPersistenceImpl(
     }
 
     @Synchronized
-    fun close() {
+    override fun close() {
         logFileWriter?.closeSafety()
         sbCache.setLength(0)
         curCacheLen = 0

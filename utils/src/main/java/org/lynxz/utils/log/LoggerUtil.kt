@@ -4,13 +4,17 @@ import android.util.Log
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
+import java.security.cert.CertPath
 
 /**
  * Created by lynxz on 31/01/2017.
  * V1.1
- * 默认不可打印,请通过设置 LoggerUtil.init(logLevel,Tag) 来设定可打印等级
+ * 默认不可打印,请通过设置 [init] 来设定可打印等级和持久化工具
  * 格式化打印日志,若是需要打印json,可使用 LoggerUtil.json(jsonStr),或者 LoggerUtil.json(tag,jsonStr)
- * LoggerUtil.i(tag,msg) 或 LoggerUtil.i(msg) 使用通用的tag值
+ * 使用方式:
+ * 1. 指定tag: LoggerUtil.i(tag,msg
+ * 2. 通用tag: LoggerUtil.i(msg)
+ * 3. 获取当前使用的持久化工具类: [getLogPersistenceImpl]
  */
 object LoggerUtil {
     private var lTag = "default_logger" // 默认tag
@@ -22,17 +26,34 @@ object LoggerUtil {
     var logLevel = LogLevel.DEBUG // 需要打印的日志等级(大于等于该等级的日志会被打印)
 
     /**
-     * 支持用户自己传tag，可扩展性更好
+     * 初始化, 指定日志等级和默认tag以及持久化工具类
      */
     @JvmStatic
     fun init(
-        @LogLevel.LogLevel1 level: Int,
-        tag: String,
-        logPersistenceImpl: ILogPersistence? = null
+        @LogLevel.LogLevel1 level: Int, // 需要输出打印的 Log 等级, 高于该等级才会打印
+        tag: String, // 默认的通用tag
+        logPersistenceImpl: ILogPersistence? = null // 持久化工具类,可参考 LogPersistenceImpl 类
     ): LoggerUtil {
         this.lTag = tag
         this.logLevel = level
         this.logPersistenceImpl = logPersistenceImpl
+        return this
+    }
+
+    /**
+     * 初始化, 指定日志等级和默认tag以及持久化日志目录,默认持久化 WARN 级别日志
+     */
+    @JvmStatic
+    fun init(
+        @LogLevel.LogLevel1 level: Int, // 需要输出打印的 Log 等级, 高于该等级才会打印
+        tag: String, // 默认的通用tag
+        logPersistenceDirPath: String? = null // 持久化工具类,可参考 LogPersistenceImpl 类
+    ): LoggerUtil {
+        this.lTag = tag
+        this.logLevel = level
+        logPersistenceDirPath?.let {
+            this.logPersistenceImpl = LogPersistenceImpl(logPersistenceDirPath)
+        }
         return this
     }
 
@@ -177,4 +198,9 @@ object LoggerUtil {
     ) {
         logPersistenceImpl?.filterPersistenceLog(logLevel, tag, msg)
     }
+
+    /**
+     * 获取当前使用的日志持久化工具类
+     * */
+    fun getLogPersistenceImpl() = logPersistenceImpl
 }
