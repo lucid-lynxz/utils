@@ -19,7 +19,7 @@ allprojects {
 
 // 2. 在模块下的 build.gradle 中添加依赖
 dependencies {
-    implementation 'com.github.lucid-lynxz:utils:0.1.10'
+    implementation 'com.github.lucid-lynxz:utils:0.1.13'
 }
 ```
 
