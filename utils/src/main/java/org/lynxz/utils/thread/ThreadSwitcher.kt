@@ -7,6 +7,7 @@ import org.lynxz.utils.log.LoggerUtil
 import org.lynxz.utils.no
 import org.lynxz.utils.otherwise
 import org.lynxz.utils.reflect.EnabledResult
+import org.lynxz.utils.reflect.FunTraverseUtil
 import org.lynxz.utils.reflect.ProxyUtil.IFuncInvokeCallback
 import org.lynxz.utils.reflect.ProxyUtil.generateDefaultImplObj
 import org.lynxz.utils.reflect.ReflectUtil
@@ -40,6 +41,36 @@ import java.util.concurrent.atomic.AtomicInteger
  * -    b. 自行进行线程切换: [invokeOuterObserverOnTargetThread]
  */
 open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getMainLooper()) {
+
+    /**
+     * 需要回调outerObserver的方法信息
+     */
+    private data class MethodFilterBean(
+        val enableMethods: Set<String>? = null, // 允许回调的方法信息(可使用方法名,获取方法签名),空表示不过滤,均可回调
+        val disableMethods: Set<String>? = null  // 不允许回调的方法信息(可使用方法名,获取方法签名),空表示不过滤,均不禁止
+    ) {
+        /**
+         * 方法是否需要回调到 outerObserver
+         */
+        fun canCallback(method: Method) =
+            canCallback(method.name) || canCallback(FunTraverseUtil.getMethodSignature(method))
+
+        /**
+         * 指定的方法名/签名是否可回调到 outerObserver£
+         * 需要同时满足在 [enableMethods] 并不在 [disableMethods] 中的才可回调
+         * @param name 方法名或者方法签名(参考 FunTraverseUtil.getMethodSignature(...))
+         */
+        fun canCallback(name: String): Boolean {
+            val enableHit =
+                if (enableMethods.isNullOrEmpty()) true
+                else enableMethods.contains(name)
+            val disableHit =
+                if (disableMethods.isNullOrEmpty()) false
+                else disableMethods.contains(name)
+            return enableHit && !disableHit
+        }
+    }
+
     //指定线程handler
     private val targetHandler: BizHandler = BizHandler(targetLooper)
 
@@ -48,6 +79,10 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
     // 外部注入的观察者,运行在外部指定的线程
     @GuardedBy("outerLock")
     private val outerObserverMap: MutableMap<Class<*>, MutableSet<Any>?> = mutableMapOf()
+
+    // 每个outerObserver允许回调的方法信息,若对应的value为null,则表示不做过滤, 所有方法均回调
+    @GuardedBy("outerLock")
+    private val outerObserverFilterMap: MutableMap<Any, MethodFilterBean?> = mutableMapOf()
 
     // 内部生成的观察者,运行在sdk库回调线程
     private val innerObserverMap: MutableMap<String, Any> = mutableMapOf()
@@ -90,6 +125,7 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
         innerObserverMap.clear()
         synchronized(outerLock) {
             outerObserverMap.clear()
+            outerObserverFilterMap.clear()
         }
         // activeRunnableCount.set(0)
         LoggerUtil.w(TAG, "release end:$this,activeRunnableCount=${activeRunnableCount.get()}")
@@ -101,19 +137,28 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
      * @param observer outerObserver实例
      * @param clz outerObserver所属类型,通常若参数 [observer] 是通过匿名内部类创建的,则建议明确指定其类型,避免识别错误
      * @param add true-添加observer  false-移除observer
+     * @param enableCallbackMethods 允许回调的方法名,若为空,则表示不过滤
+     * @param disableCallbackMethods 禁止回调的方法名,若为空,则表示不过滤
      */
     @JvmOverloads
     fun <O : Any> registerOuterObserver(
         observer: O,
         clz: Class<out O> = observer.javaClass,
-        add: Boolean = true
+        add: Boolean = true,
+        enableCallbackMethods: Set<String>? = null,
+        disableCallbackMethods: Set<String>? = null
     ): Boolean {
         synchronized(outerLock) {
             val set = outerObserverMap[clz] ?: CopyOnWriteArraySet()
             outerObserverMap[clz] = set
             return if (add) {
+                if (enableCallbackMethods != null || disableCallbackMethods != null) {
+                    outerObserverFilterMap[observer] =
+                        MethodFilterBean(enableCallbackMethods, disableCallbackMethods)
+                }
                 set.add(observer)
             } else {
+                outerObserverFilterMap.remove(observer)
                 set.isEmpty() || !set.contains(observer) || set.remove(observer)
             }
         }
@@ -185,6 +230,11 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
                 val finalArgs = recookArgsAction?.recook(method, args) ?: args // 对方法实参进行二次处理,如copy等
                 // 外部未注入observer时,不用抛线程
                 getOuterRegisterObserver(observerClz)?.forEach { outerObserver ->
+                    val filterBean = outerObserverFilterMap[outerObserver]
+                    if (filterBean?.canCallback(method) == false) {
+                        return@forEach
+                    }
+
                     val runnable = Runnable {
                         isActive.get().yes {
                             try {
@@ -252,19 +302,24 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
         val methodName = enclosingMethod.name
         val parameterTypes = enclosingMethod.parameterTypes
         val paraSize = parameterTypes.size
-        val tMethod: Method? = if (paraSize == 0) {
+        val tMethod: Method = if (paraSize == 0) {
             ReflectUtil.getDeclaredMethod(observerClz, methodName)
         } else {
             ReflectUtil.getDeclaredMethod(observerClz, methodName, *parameterTypes)
-        }
+        } ?: return
 
         // 获取 outerObserver
         val outerObserver = getOuterRegisterObserver(observerClz) ?: return
 
         // 在目标线程中回调 outerObserver
         outerObserver.forEach { ob ->
+            val filterBean = outerObserverFilterMap[outerObserver]
+            if (filterBean?.canCallback(tMethod) == false) {
+                return@forEach
+            }
+
             runOnTargetThread {
-                tMethod?.invoke(ob, *args)
+                tMethod.invoke(ob, *args)
             }
         }
     }
