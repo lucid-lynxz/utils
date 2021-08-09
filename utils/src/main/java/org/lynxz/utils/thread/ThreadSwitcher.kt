@@ -226,6 +226,10 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
                 argGroupIndex: Int,
                 args: Array<out Any?>?
             ): EnabledResult<Any>? {
+                // 由于是通过动态代理生成的interface实例, 额外实现了 toString/hashCode/equals 方法, 这三个可不用回调,此处过滤
+                if (excludeCallbackMethods.contains(method.name)) {
+                    return null
+                }
                 isActive.get().no { return null }  // 已停止的线程切换器无需执行
                 val finalArgs = recookArgsAction?.recook(method, args) ?: args // 对方法实参进行二次处理,如copy等
                 // 外部未注入observer时,不用抛线程
@@ -357,6 +361,9 @@ open class ThreadSwitcher private constructor(targetLooper: Looper = Looper.getM
 
     companion object {
         private const val TAG = "ThreadSwitcher"
+
+        // 不需要进行回调的方法,主要是动态代理额外实现的部分接口
+        private val excludeCallbackMethods = listOf("equals", "hashCode", "toString")
 
         /**
          * 创建线程切换器
