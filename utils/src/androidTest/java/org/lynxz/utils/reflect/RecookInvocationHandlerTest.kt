@@ -124,6 +124,12 @@ class RecookInvocationHandlerTest {
             override fun onInvoke(msg: String?) {
                 LoggerUtil.d(TAG, "onInvoke:  $msg")
             }
+
+            override fun onInvoke1() {
+            }
+
+            override fun onInvoke2() {
+            }
         }
 
         // 通过动态代理对实现类方法进行增强
