@@ -2,11 +2,18 @@ package org.lynxz.utils.reflect
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert
+import org.junit.Ignore
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.lynxz.utils.bean.EnumStatusBean
 import org.lynxz.utils.bean.User
 import org.lynxz.utils.log.LoggerUtil
+import org.lynxz.utils.observer.ICallback
+import org.lynxz.utils.observer.ISimpleObserver
+import java.lang.RuntimeException
+import java.lang.reflect.InvocationHandler
+import java.lang.reflect.Method
+import java.lang.reflect.Proxy
 
 
 @RunWith(AndroidJUnit4::class)
@@ -66,6 +73,25 @@ class ReflectUtilTest {
         val arr = m?.parameterAnnotations?.get(0) ?: return
         arr.forEach {
             LoggerUtil.d(TAG, "annotation: $it")
+        }
+    }
+
+    @Test
+    // @Ignore("查看动态代理类结构")
+    fun oriProxyTest() {
+        val proxyObj = Proxy.newProxyInstance(
+            javaClass.classLoader,
+            arrayOf(ICallback::class.java)
+        ) { proxy, method, args ->
+            RuntimeException("===> 调用堆栈:${method?.name}").printStackTrace()
+            args?.forEachIndexed { index, any ->
+                LoggerUtil.w(TAG, "===> 方法参数: $index - $any")
+            }
+            ReflectUtil.generateDefaultTypeValue(method!!.returnType)
+        }
+        LoggerUtil.w(TAG, "===>类结构:\n${ProxyGeneratorImpl(proxyObj.javaClass).generate()}")
+        if (proxyObj is ICallback) {
+            proxyObj.onCallback(1, true, "hello")
         }
     }
 }
