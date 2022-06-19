@@ -9,6 +9,9 @@
 ## 使用说明
 
 ### 导包
+
+[![](https://jitpack.io/v/lucid-lynxz/utils.svg)](https://jitpack.io/#lucid-lynxz/utils)
+
 ```gradle
 // 1. 修改项目根目录 build.gradle 文件,添加仓库
 allprojects {
@@ -19,7 +22,7 @@ allprojects {
 
 // 2. 在模块下的 build.gradle 中添加依赖
 dependencies {
-    implementation 'com.github.lucid-lynxz:utils:0.1.15'
+    implementation 'com.github.lucid-lynxz:utils:latest'
 }
 ```
 
@@ -28,4 +31,5 @@ dependencies {
 * [FileUtil](doc/README_Fileutil.md) 文件的创建/删除/复制/移动/读/写等功能
 * [NumberExt](doc/README_NumberExt.md) 字符串与数字的转换扩展函数
 * [ThreadSwitcher](doc/README_ThreadSwitcher.md) observer线程自动切换工具类
-* AssetUtil 待添加
+* [AssetUtil](doc/README_AssetUtil.md) asset资源复制及读取
+* [FuncTraverseUtil](doc/README_FuncTraverseUtil.md) 接口压测工具类

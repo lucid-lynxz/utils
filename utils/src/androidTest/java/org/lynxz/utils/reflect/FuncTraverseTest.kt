@@ -59,6 +59,7 @@ class FuncTraverseTest {
         LoggerUtil.d(TAG, "fileDir!!.absolutePath=${fileDir.absolutePath} ")
 
         FunTraverseUtil.create(FuncTraverseBean())
+            .setTargetClz(FuncTraverseBean::class.java)
             .enableDefaultMultiArtTypeValues()
             .setSpecialMethodList(perUtil.pendingInvokeMethodSignatureList)
             .setMethodArgGroupIndexMap(perUtil.methodArgGroupIndexMapFromLog)
