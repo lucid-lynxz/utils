@@ -25,18 +25,19 @@ import java.lang.reflect.Method
  *       .setSpecialMethodList(perUtil.pendingInvokeMethodSignatureList) // 使用日志中的记录作为回放依据
  *       .setMethodArgGroupIndexMap(perUtil.methodArgGroupIndexMapFromLog) // 使用日志记录的参数组合
  *       .also { // 可选,清空无用数据
- *           perUtil.writeMethodListToLog(it.validMethodList)
+ *           perUtil.writeMethodList2Log(it.validMethodList)
  *           .deleteLogFile(FunTraversePersistenceUtil.LOG_METHOD_ARG_INDEX)
  *       }
- *       .addBeforeFuncInvokeAction(object : ProxyUtil.OnFunInvokeCallback() {
- *           override fun onFuncInvoke(method: Method, returnObj: Any?, argGroupIndex: Int, args: Array<out Any?>?) {
+ *       .addBeforeFuncInvokeAction(object : ProxyUtil.IFuncInvokeCallback {
+ *           override fun onFuncInvoke(method: Method, returnObj: Any?, argGroupIndex: Int, args: Array<out Any?>?): EnabledResult<Any>? {
  *           // 每次方法执行前记录日志: 所用实参组合序号, 当前方法签名,方便后续回放
  *           // 设置当前正在进行方法遍历的method签名并写入到日志
  *           val methodSignature: String = FunTraverseUtil.getMethodSignature(method)
  *
  *           // 尝试记录当前方法调用顺序及其所用参数组合的序号信息
- *           perUtil.writeLastMethodSignatureToLog(methodSignature)
- *           perUtil.writeMethodArgIndexToLog(methodSignature, argGroupIndex)
+ *           perUtil.writeLastMethodSignature2Log(methodSignature)
+ *           perUtil.writeMethodArgIndex2Log(methodSignature, argGroupIndex)
+ *           return null
  *           }
  *       })
  *       .invokeAllPublic() // 触发执行

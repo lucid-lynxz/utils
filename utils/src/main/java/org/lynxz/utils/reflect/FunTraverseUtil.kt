@@ -6,7 +6,7 @@ import org.lynxz.utils.reflect.FunTraverseUtil.Companion.getMethodSignature
 import org.lynxz.utils.reflect.ProxyUtil.IFuncInvokeCallback
 import org.lynxz.utils.reflect.ReflectUtil.generateDefaultTypeValue
 import org.lynxz.utils.reflect.ReflectUtil.generateDefaultTypeValueList
-import org.lynxz.utils.reflect.ReflectUtil.getSpecialDeclaredMethods
+import org.lynxz.utils.reflect.ReflectUtil.getSpecialMethods
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
@@ -20,7 +20,7 @@ import java.util.regex.Pattern
  * -    2. 不自动执行父类方法, 需要指定方法所在类: targetClz,默认为当前对象类的Class
  *
  * <pre>
- * FuncTraverseUtil.create(mainObj) // 必传对象
+ * FuncTraverseUtil.create(mainObj) // 必传待测对象
  *      .setTargetClz(Main.class) // 可选, 设置待验证方法所在的Class
  *      .setMethodNamePattern(".*") // 可选, 待测试方法名匹配规则, 正则
  *      .addExcludeMethodNames("release") // 可选, 不进行测试的方法名,可多次添加或一次添加多条
@@ -44,6 +44,9 @@ import java.util.regex.Pattern
 class FunTraverseUtil<T> private constructor(private val targetObj: T) {
     // 指定对象的 Class,只会处理该Class中的public方法
     private var targetClz: Class<in T>
+
+    // 是否需要触发父类的方法
+    private var includeInheritedMethod = false
 
     // 可执行的方法信息过滤条件
     // 方法匹配条件1: 方法名正则匹配,默认全部符合($开头及非public的除外)
@@ -262,7 +265,13 @@ class FunTraverseUtil<T> private constructor(private val targetObj: T) {
             }
             val resultMethodList: MutableList<Method?> = ArrayList()
             val allGetMethods =
-                getSpecialDeclaredMethods(targetClz, methodNamePattern, null, Modifier.PUBLIC)
+                getSpecialMethods(
+                    targetClz,
+                    methodNamePattern,
+                    null,
+                    includeInheritedMethod,
+                    Modifier.PUBLIC
+                )
             val signatureMethodMap: MutableMap<String?, Method> = HashMap()
             for (method in allGetMethods) {
                 val methodName = method.name
@@ -365,9 +374,14 @@ class FunTraverseUtil<T> private constructor(private val targetObj: T) {
 
     /**
      * 执行所有符合条件的方法列表
+     * @param includeInheritedMethod 是否需要触发父类的方法,默认false
      * @param beforeAction Runnable? 运行前的前置操作
      */
-    fun invokeAllPublic(beforeAction: Runnable? = null): FunTraverseUtil<T> {
+    fun invokeAllPublic(
+        includeInheritedMethod: Boolean = false,
+        beforeAction: Runnable? = null
+    ): FunTraverseUtil<T> {
+        this.includeInheritedMethod = includeInheritedMethod
         beforeAction?.run()
         val allGetMethods = validMethodList ?: return this
         LoggerUtil.w(
@@ -562,6 +576,10 @@ class FunTraverseUtil<T> private constructor(private val targetObj: T) {
         // 内置的形参默认值信息, 默认list只有一个元素
         private var defaultArgTypeValueMap: HashMap<Class<*>?, MutableList<Any?>?>? = null
 
+        /**
+         * @param targetObj: 待测对象
+         * @param includeInheritedMethod: 是否需要触发父类的待测方法,默认:false
+         */
         @JvmStatic
         fun <T> create(targetObj: T): FunTraverseUtil<T> {
             initDefaultArgTypeValueMap()

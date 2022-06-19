@@ -3,7 +3,7 @@ package org.lynxz.utils
 import org.junit.Assert
 import org.junit.Test
 
-class NumberUtilTest {
+class NumberExtTest {
     /**
      * 字符串转整数
      * */
