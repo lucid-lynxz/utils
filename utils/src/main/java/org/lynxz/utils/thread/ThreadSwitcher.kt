@@ -35,8 +35,9 @@ import java.util.concurrent.atomic.AtomicInteger
  * 4. 外部(通常是UI层)注入/移除observer: [registerOuterObserver]
  * 5. 获取外部(通常是UI层)注入的observer: [getOuterRegisterObserver]
  * 6. 在指定的线程执行runnable: [runOnTargetThread]
- * 7. 停用转换器: [deActive]
- * 8. 外部自行实现 innerObserver 时:
+ * 7. 设置某种类型observer的通用过滤条件: [registerGlobalObserverFilterMethod]
+ * 8. 停用转换器: [deActive]
+ * 9. 外部自行实现 innerObserver 时:
  * -    a. 注册到缓存中: [addInnerObserverToCache]
  * -    b. 自行进行线程切换: [invokeOuterObserverOnTargetThread]
  */
