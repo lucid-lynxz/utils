@@ -20,6 +20,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.util.SparseArray
 import androidx.annotation.StringRes
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.util.Predicate
@@ -379,30 +380,59 @@ class PermissionFragment : BaseTransFragment() {
         @StringRes msgResId: Int = 0,
         requestCode: Int
     ) {
-        AlertDialog.Builder(hostActivity).apply {
-            if (titleResId != 0) {
-                setTitle(titleResId)
-            } else {
-                setTitle(title)
-            }
 
-            if (msgResId != 0) {
-                setMessage(msgResId)
-            } else {
-                setMessage(msg)
-            }
-        }
-            .setPositiveButton(android.R.string.yes) { _, _ ->
-                try {
-                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                    intent.data = Uri.parse("package:${hostActivity.packageName}")
-                    startActivityForResult(intent, requestCode)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                    mStartForResultPermissionRequest.remove(requestCode)
+        if (hostActivity is AppCompatActivity) {
+            androidx.appcompat.app.AlertDialog.Builder(hostActivity).apply {
+                if (titleResId != 0) {
+                    setTitle(titleResId)
+                } else {
+                    setTitle(title)
+                }
+
+                if (msgResId != 0) {
+                    setMessage(msgResId)
+                } else {
+                    setMessage(msg)
                 }
             }
-            .setNegativeButton(android.R.string.no, null)
-            .show()
+                .setPositiveButton(android.R.string.yes) { _, _ ->
+                    try {
+                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                        intent.data = Uri.parse("package:${hostActivity.packageName}")
+                        startActivityForResult(intent, requestCode)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        mStartForResultPermissionRequest.remove(requestCode)
+                    }
+                }
+                .setNegativeButton(android.R.string.no, null)
+                .show()
+        } else {
+            AlertDialog.Builder(hostActivity).apply {
+                if (titleResId != 0) {
+                    setTitle(titleResId)
+                } else {
+                    setTitle(title)
+                }
+
+                if (msgResId != 0) {
+                    setMessage(msgResId)
+                } else {
+                    setMessage(msg)
+                }
+            }
+                .setPositiveButton(android.R.string.yes) { _, _ ->
+                    try {
+                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                        intent.data = Uri.parse("package:${hostActivity.packageName}")
+                        startActivityForResult(intent, requestCode)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        mStartForResultPermissionRequest.remove(requestCode)
+                    }
+                }
+                .setNegativeButton(android.R.string.no, null)
+                .show()
+        }
     }
 }
