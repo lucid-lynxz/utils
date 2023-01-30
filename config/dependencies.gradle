@@ -130,8 +130,8 @@ ext {
             roomCompiler                  : "android.arch.persistence.room:compiler:$roomVersion",
 
             // androidX 库
-            annotationX                   : "androidx.annotation:annotation:1.1.0",
             appcompatX                    : "androidx.appcompat:appcompat:${androidSupportVersionX}",
+            annotationX                   : "androidx.annotation:annotation:${androidSupportVersionX}",
             supportV4X                    : "androidx.legacy:legacy-support-v4:${androidLegacyVersionX}",
             constraintLayoutX             : "androidx.constraintlayout:constraintlayout:${constraintLayoutVersionX}",
 
@@ -402,7 +402,7 @@ ext {
             * 自定义常用工具类,基于androidX: https://github.com/lucid-lynxz/utils
             * implementation(libs.xUtils)
             * */
-            xUtils                       : "com.github.lucid-lynxz:utils:0.1.13"
+            xUtils                        : "com.github.lucid-lynxz:utils:0.1.13"
     ]
 
     test = [

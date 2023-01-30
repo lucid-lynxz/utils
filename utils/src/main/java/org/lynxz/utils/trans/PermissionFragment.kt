@@ -10,6 +10,7 @@ package org.lynxz.utils.trans
 // androidX库
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -19,10 +20,12 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.util.SparseArray
 import androidx.annotation.StringRes
-import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.util.Predicate
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.FragmentActivity
 import org.lynxz.utils.trans.PermissionFragment.Companion.isPermissionGranted
 import org.lynxz.utils.trans.PermissionFragment.Companion.startSettingActivity
 import kotlin.random.Random
@@ -91,17 +94,20 @@ interface IPermissionChecker {
  * 使用方法:
  *  <pre>
  *      // 1. 注入权限申请fragment到指定的 activity 中
+ *      val permissionFrag = PermissionFragment.addToHostActivity(hostActivity)
+ *      等价于:
  *      val permissionFrag = BaseTransFragment.getTransFragment(hostActivity, "permission_tag", PermissionFragment())
  *
  *      // 2. 设置回调接口
  *      val permissionCallback = object : IPermissionCallback {
  *          override fun onRequestResult(permission: PermissionResultInfo) {
- *              // 具体某个权限的授权结果
+ *              // 具体某个权限的授权结果, 每个权限弹框有授权结果后都会回调一次
+ *              // 某些场景下可能不回调,比如 targetSdkVersion 设置低于23(Android6.0),但app运行在6.0以上的手机
  *              Logger.d("授权结果\n权限名=${permission.name},是否授权=${permission.granted},是否可再弹出系统权限框=${permission.shouldShowRequestPermissionRationale}")
  *          }
  *
  *          override fun onAllRequestResult(allGranted: Boolean) {
- *              // 所申请的权限是否全部都通过了
+ *              // 所申请的权限是否全部都通过了,肯定会回调一次
  *          }
  *      }
  *
@@ -131,6 +137,14 @@ class PermissionFragment : BaseTransFragment() {
     companion object {
         // 套装到设置页面进行权限申请
         private const val CODE_SETTING = 100
+
+        /**
+         * 在当前页面添加PermissionFragment,返回添加的fragment
+         */
+        @JvmStatic
+        @JvmOverloads
+        fun addToHostActivity(fragmentActivity: FragmentActivity, tag: String = "permission_tag") =
+            getTransFragment(fragmentActivity, tag, PermissionFragment()) as PermissionFragment
 
         /**
          * 跳转到权限设置页面
@@ -216,18 +230,29 @@ class PermissionFragment : BaseTransFragment() {
 
     /**
      * 申请权限, 若权限已被拒绝并 "Don’t ask again",则弹出提示框,点击确定按钮则跳转到设置页面
+     * title 和 titleResId 表示弹框标题, 任意一个有效即可, 优先使用 titleResId(非0时有效)
+     * msg 和 msgResId 表示弹框提示内容, 任意一个有效即可, 优先使用 msgResId(非0时有效)
+     * @param permission 权限名称, 参考 [Manifest.permission]
+     * @param customPredicate 调用方自行判断权限是否授予,形参是权限名,若返回false,则会直接触发弹框跳转到设置页面
+     * @param callback 权限申请结果回调
      * */
+    @JvmOverloads
     fun requestPermissionWithDialogIfNeeded(
         permission: String,
         title: CharSequence? = "",
         msg: CharSequence? = "",
         @StringRes titleResId: Int = 0,
         @StringRes msgResId: Int = 0,
+        customPredicate: Predicate<String>? = null,
         callback: IPermissionCallback?
     ) {
-        val granted = isPermissionGrantedInternal(permission)
+        val targetSdkVersion = hostActivity.applicationInfo.targetSdkVersion
+        val granted = customPredicate?.test(permission) ?: isPermissionGrantedInternal(permission)
         val canRequestAgain =
-            !ActivityCompat.shouldShowRequestPermissionRationale(hostActivity, permission)
+            if (targetSdkVersion < Build.VERSION_CODES.M)
+                false
+            else
+                !ActivityCompat.shouldShowRequestPermissionRationale(hostActivity, permission)
         if (granted) {
             callback?.onRequestResult(PermissionResultInfo(permission, granted, canRequestAgain))
             callback?.onAllRequestResult(true)
@@ -366,30 +391,58 @@ class PermissionFragment : BaseTransFragment() {
         @StringRes msgResId: Int = 0,
         requestCode: Int
     ) {
-        AlertDialog.Builder(hostActivity).apply {
-            if (titleResId != 0) {
-                setTitle(titleResId)
-            } else {
-                setTitle(title)
-            }
+        if (hostActivity is AppCompatActivity) {
+            androidx.appcompat.app.AlertDialog.Builder(hostActivity).apply {
+                if (titleResId != 0) {
+                    setTitle(titleResId)
+                } else {
+                    setTitle(title)
+                }
 
-            if (msgResId != 0) {
-                setMessage(msgResId)
-            } else {
-                setMessage(msg)
-            }
-        }
-            .setPositiveButton(android.R.string.yes) { _, which ->
-                try {
-                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                    intent.data = Uri.parse("package:${hostActivity.packageName}")
-                    startActivityForResult(intent, requestCode)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                    mStartForResultPermissionRequest.remove(requestCode)
+                if (msgResId != 0) {
+                    setMessage(msgResId)
+                } else {
+                    setMessage(msg)
                 }
             }
-            .setNegativeButton(android.R.string.no, null)
-            .show()
+                .setPositiveButton(android.R.string.yes) { _, _ ->
+                    try {
+                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                        intent.data = Uri.parse("package:${hostActivity.packageName}")
+                        startActivityForResult(intent, requestCode)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        mStartForResultPermissionRequest.remove(requestCode)
+                    }
+                }
+                .setNegativeButton(android.R.string.no, null)
+                .show()
+        } else {
+            AlertDialog.Builder(hostActivity).apply {
+                if (titleResId != 0) {
+                    setTitle(titleResId)
+                } else {
+                    setTitle(title)
+                }
+
+                if (msgResId != 0) {
+                    setMessage(msgResId)
+                } else {
+                    setMessage(msg)
+                }
+            }
+                .setPositiveButton(android.R.string.yes) { _, _ ->
+                    try {
+                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                        intent.data = Uri.parse("package:${hostActivity.packageName}")
+                        startActivityForResult(intent, requestCode)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        mStartForResultPermissionRequest.remove(requestCode)
+                    }
+                }
+                .setNegativeButton(android.R.string.no, null)
+                .show()
+        }
     }
 }
