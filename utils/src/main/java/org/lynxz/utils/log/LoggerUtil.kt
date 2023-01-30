@@ -4,15 +4,20 @@ import android.util.Log
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
-import java.security.cert.CertPath
+import org.lynxz.utils.log.LoggerUtil.getLogPersistenceImpl
+import org.lynxz.utils.log.LoggerUtil.init
+import org.lynxz.utils.log.LoggerUtil.updateLogCacheSize
+
 
 /**
  * Created by lynxz on 31/01/2017.
  * V1.1
  * 默认不可打印,请通过设置 [init] 来设定可打印等级和持久化工具
+ * 在 [init] 传入持久化实现类之前的日志可能无法写入到日志文件中,则可通过 [updateLogCacheSize] 来设置需要缓存的日志数量和级别
+ * P.S. 默认不缓存, 缓存的日志会在后续 [init] 传入非空的 ILogPersistence 实现类后写入到文件中
  * 格式化打印日志,若是需要打印json,可使用 LoggerUtil.json(jsonStr),或者 LoggerUtil.json(tag,jsonStr)
  * 使用方式:
- * 1. 指定tag: LoggerUtil.i(tag,msg
+ * 1. 指定tag: LoggerUtil.i(tag,msg)
  * 2. 通用tag: LoggerUtil.i(msg)
  * 3. 获取当前使用的持久化工具类: [getLogPersistenceImpl]
  */
@@ -24,6 +29,30 @@ object LoggerUtil {
 
     @LogLevel.LogLevel1
     var logLevel = LogLevel.DEBUG // 需要打印的日志等级(大于等于该等级的日志会被打印)
+
+    data class LogMessage(
+        @LogLevel.LogLevel1 val logLevel: Int,
+        val tag: String,
+        val msg: String
+    )
+
+    // 初始化 logPersistenceImpl 前缓存的日志条数, 负数或0表示不不缓存
+    private var cacheSize = 0
+    private val cacheList: MutableList<LogMessage> = mutableListOf()
+
+    @LogLevel.LogLevel1
+    private var cacheLogMinLevel: Int = logLevel // 需要进行缓存的最低日志等级
+
+    /**
+     * 在 logPersistenceImpl 初始化前, 允许缓存的日志条数
+     * 负数或0表示不缓存, 默认不缓存
+     */
+    @JvmStatic
+    fun updateLogCacheSize(maxSize: Int, @LogLevel.LogLevel1 level: Int): LoggerUtil {
+        cacheSize = maxSize
+        cacheLogMinLevel = level
+        return this
+    }
 
     /**
      * 初始化, 指定日志等级和默认tag以及持久化工具类
@@ -37,6 +66,11 @@ object LoggerUtil {
         this.lTag = tag
         this.logLevel = level
         this.logPersistenceImpl = logPersistenceImpl
+
+        if (logPersistenceImpl != null && cacheList.isNotEmpty()) {
+            cacheList.forEach { filterPersistenceLog(it.logLevel, it.tag, it.msg) }
+            cacheList.clear()
+        }
         return this
     }
 
@@ -49,12 +83,11 @@ object LoggerUtil {
         tag: String, // 默认的通用tag
         logPersistenceDirPath: String? = null // 持久化工具类,可参考 LogPersistenceImpl 类
     ): LoggerUtil {
-        this.lTag = tag
-        this.logLevel = level
+        var impl: LogPersistenceImpl? = null
         logPersistenceDirPath?.let {
-            this.logPersistenceImpl = LogPersistenceImpl(logPersistenceDirPath)
+            impl = LogPersistenceImpl(logPersistenceDirPath)
         }
-        return this
+        return init(level, tag, impl)
     }
 
     @JvmStatic
@@ -197,6 +230,15 @@ object LoggerUtil {
         msg: String?
     ) {
         logPersistenceImpl?.filterPersistenceLog(logLevel, tag, msg)
+        if (logPersistenceImpl == null && cacheSize > 0 && logLevel >= cacheLogMinLevel && !msg.isNullOrBlank()) {
+            synchronized(LoggerUtil::class.java) {
+                cacheList.add(LogMessage(logLevel, tag, msg))
+                val size = cacheList.size
+                if (size >= cacheSize && size > 0) {
+                    cacheList.removeAt(0)
+                }
+            }
+        }
     }
 
     /**

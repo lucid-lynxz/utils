@@ -7,7 +7,7 @@ buildscript {
         maven { url 'https://maven.aliyun.com/repoitory/public' }
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.5.1'
+        classpath 'com.android.tools.build:gradle:4.0.1'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinLibVersion"
         classpath 'com.github.dcendents:android-maven-gradle-plugin:2.1'
 
