@@ -144,7 +144,7 @@ class PermissionFragment : BaseTransFragment() {
         @JvmStatic
         @JvmOverloads
         fun addToHostActivity(fragmentActivity: FragmentActivity, tag: String = "permission_tag") =
-            getTransFragment(fragmentActivity, tag, PermissionFragment()) as PermissionFragment
+            getTransFragment(fragmentActivity, tag, PermissionFragment())
 
         /**
          * 跳转到权限设置页面
@@ -228,6 +228,19 @@ class PermissionFragment : BaseTransFragment() {
         }
     }
 
+    /***
+     * 是否可以再次弹出权限请求框, 请结合是否已授权 [isPermissionGranted] 使用
+     * 对于6.0以上设备:
+     * 1. 首次申请权限前, 返回 false
+     * 2. 用户禁止授权,但未勾选 '不再询问' , 返回 true
+     * 3. 用户禁止授权,同时勾选了 '不再询问', 返回 false
+     */
+    fun canRequestAgain(permission: String) =
+        if (hostActivity.applicationInfo.targetSdkVersion < Build.VERSION_CODES.M)
+            false
+        else
+            ActivityCompat.shouldShowRequestPermissionRationale(hostActivity, permission)
+
     /**
      * 申请权限, 若权限已被拒绝并 "Don’t ask again",则弹出提示框,点击确定按钮则跳转到设置页面
      * title 和 titleResId 表示弹框标题, 任意一个有效即可, 优先使用 titleResId(非0时有效)
@@ -246,15 +259,10 @@ class PermissionFragment : BaseTransFragment() {
         customPredicate: Predicate<String>? = null,
         callback: IPermissionCallback?
     ) {
-        val targetSdkVersion = hostActivity.applicationInfo.targetSdkVersion
         val granted = customPredicate?.test(permission) ?: isPermissionGrantedInternal(permission)
-        val canRequestAgain =
-            if (targetSdkVersion < Build.VERSION_CODES.M)
-                false
-            else
-                !ActivityCompat.shouldShowRequestPermissionRationale(hostActivity, permission)
+        val canRequestAgain = canRequestAgain(permission)
         if (granted) {
-            callback?.onRequestResult(PermissionResultInfo(permission, granted, canRequestAgain))
+            callback?.onRequestResult(PermissionResultInfo(permission, true, canRequestAgain))
             callback?.onAllRequestResult(true)
         } else {
             if (canRequestAgain) {
