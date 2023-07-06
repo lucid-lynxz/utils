@@ -389,7 +389,6 @@ object FileUtil {
         if (fileName.isBlank()) {
             return fileExt
         }
-//        fileName = fileName.toLowerCase()
         val split = fileName.split(".").toTypedArray()
         val len = split.size
         if (len >= 2) {

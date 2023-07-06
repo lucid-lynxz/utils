@@ -44,7 +44,7 @@ class RecookInvocationHandler(
         // LoggerUtil.d(TAG, " generateDefaultInterfaceImpl invoke method:" + method.getName() + ", returnType=" + returnType + ",retValue=" + retValue + ",isPrimitive=" + isPrimitive);
         var retValue = when (method.name) {
             "toString" -> "${proxy.javaClass.simpleName}@${hashCode()}"
-            "equals" -> this == args?.get(0) ?: false
+            "equals" -> this == (args?.get(0) ?: false)
             "hashCode" -> objHashCode
             else -> ReflectUtil.generateDefaultTypeValue(returnType)
         }

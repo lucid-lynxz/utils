@@ -35,7 +35,7 @@ object AssetUtil {
             path = path.substring(0, path.length - 1)
         }
 
-        return context.assets.list(path)?.size ?: -1 > 0
+        return (context.assets.list(path)?.size ?: -1) > 0
     }
 
     /**

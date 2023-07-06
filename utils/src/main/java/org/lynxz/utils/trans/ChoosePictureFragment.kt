@@ -16,6 +16,7 @@ import android.provider.MediaStore
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
 import java.io.File
+import java.util.*
 
 /**
  * Created by lynxz on 2019/4/1
@@ -303,9 +304,9 @@ class ChoosePictureFragment : BaseTransFragment() {
             path.append(File.separator)// '/'
             path.append(cache)// /mnt/sdcard/cache
         } else {
-            path.append(context?.cacheDir?.absolutePath)// /Data/Data/com.soundbus.uplusgo/cache
-            path.append(File.separator)///mData/mData/com.isoundbus.uplusgo/cache/
-            path.append(cache)///mData/mData/com.soundbus.uplusgo/cache/cache
+            path.append(context?.cacheDir?.absolutePath)// /Data/Data/{pkgName}/cache
+            path.append(File.separator)///mData/mData/{pkgName}/cache/
+            path.append(cache)///mData/mData/{pkgName}/cache/cache
         }
 
         val file = File(path.toString())
@@ -344,7 +345,7 @@ class ChoosePictureFragment : BaseTransFragment() {
     }
 
     fun isSamsungMobile(): Boolean {
-        val manufacturer = Build.MANUFACTURER.toLowerCase()
+        val manufacturer = Build.MANUFACTURER.lowercase(Locale.getDefault())
         return (manufacturer.contains("samsung") || manufacturer.contains("lg"))
     }
 }

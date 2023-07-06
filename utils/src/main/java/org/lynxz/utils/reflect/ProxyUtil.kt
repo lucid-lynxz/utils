@@ -34,10 +34,10 @@ object ProxyUtil {
          * @return  FuncInvokeResult 要求其 result.returnObj 属性类型与 returnObj 参数类型一致,否则不生效
          */
         fun onFuncInvoke(
-                method: Method,
-                returnObj: Any?,
-                argGroupIndex: Int,
-                args: Array<out Any?>?
+            method: Method,
+            returnObj: Any?,
+            argGroupIndex: Int,
+            args: Array<out Any?>?
         ): EnabledResult<Any>?
 
         /**
@@ -48,8 +48,8 @@ object ProxyUtil {
              * 返回pair中的boolean数据为 true 时表示有效,否则走默认实现
              * */
             fun <T> generate(
-                    clz: Class<T>?,
-                    callback: IFuncInvokeCallback? = null
+                clz: Class<T>?,
+                callback: IFuncInvokeCallback? = null
             ): EnabledResult<T>?
         }
     }
@@ -77,7 +77,10 @@ object ProxyUtil {
         return when {
             clz == null -> null
             clz.isEnum -> generateEnumImpl(clz) // 枚举类, 提取第一个可用值
-            Modifier.isInterface(modifier) -> generateInterfaceImpl(clz, callback)  // 接口实例化
+            Modifier.isInterface(modifier) -> generateInterfaceImpl(
+                arrayOf(clz),
+                callback
+            )  // 接口实例化
             Modifier.isAbstract(modifier) -> generateAbsClassInstance(clz, callback)  // 抽象类实例化
             else -> generateClassInstance(clz) // 普通类实例化(此处忽略了enum等类型)
         }
@@ -89,19 +92,28 @@ object ProxyUtil {
     private fun <T> generateEnumImpl(clz: Class<T>): T? = clz.enumConstants?.firstOrNull()
 
     /**
-     * 创建指定单接口的默认实现
+     * 创建指定的多接口的默认实现
      *
-     * @param clz      需要创建的接口类型class
+     * @param clzArr    需要创建的接口类型class列表
      * @param callback 接口方法被调用时触发回调
      */
     @Suppress("UNCHECKED_CAST")
-    private fun <T> generateInterfaceImpl(clz: Class<T>, callback: IFuncInvokeCallback?): T? {
-        val modifier = clz.modifiers
-        if (!Modifier.isInterface(modifier)) {
+    private fun <T> generateInterfaceImpl(
+        clzArr: Array<Class<*>>,
+        callback: IFuncInvokeCallback?
+    ): T? {
+        val tClzList =
+            clzArr.filter { Modifier.isInterface(it.modifiers) }.toCollection(mutableListOf())
+        if (tClzList.isEmpty()) {
             return null
         }
 
-        val obj = RecookInvocationHandler(interfaceClsArray = arrayOf(clz), onMethodInvokedHook = callback).newProxyInstance()
+        val tClzArr: Array<Class<*>> = tClzList.toTypedArray()
+
+        val obj = RecookInvocationHandler(
+            interfaceClsArray = tClzArr,
+            onMethodInvokedHook = callback
+        ).newProxyInstance()
 
 //        val objHashCode = Object().hashCode()
 //        val obj = Proxy.newProxyInstance(clz.classLoader, arrayOf<Class<*>>(clz)) { proxy: Any, method: Method, args: Array<Any?>? ->
@@ -119,7 +131,7 @@ object ProxyUtil {
 //            callback?.onFuncInvoke(method, retValue, -1, args)
 //            retValue
 //        }
-        return if (clz.isInstance(obj)) obj as T else null
+        return obj as T
     }
 
     /**
@@ -151,7 +163,7 @@ object ProxyUtil {
                 }
                 try {
                     returnObj =
-                            if (paraSize == 0) constructor.newInstance() else constructor.newInstance(*args)
+                        if (paraSize == 0) constructor.newInstance() else constructor.newInstance(*args)
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
@@ -168,8 +180,8 @@ object ProxyUtil {
      * @param clz 需要创建的抽象类Class
      */
     private fun <T> generateAbsClassInstance(
-            clz: Class<T>,
-            callback: IFuncInvokeCallback?
+        clz: Class<T>,
+        callback: IFuncInvokeCallback?
     ): T? {
         throw IllegalArgumentException("not support abstract class")
 //        // 需要导入javassist库: implementation("org.javassist:javassist:3.27.0-GA")
