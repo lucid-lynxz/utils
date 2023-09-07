@@ -22,6 +22,5 @@ class GsonUtilTest {
             GsonUtil.parseJson(json, MosaicParaBean::class.java)
         println("bean=$bean, map=${bean?.detailMosaicMap}")
         Assert.assertTrue(bean?.detailMosaicMap is MutableMap)
-
     }
 }

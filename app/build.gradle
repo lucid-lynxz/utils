@@ -3,17 +3,15 @@ plugins {
     id 'kotlin-android'
 }
 apply from: "../config/sign.gradle"
-
 android {
-    compileSdkVersion androidCompileSdkVersion
-    buildToolsVersion androidBuildToolsVersion
+    compileSdkVersion BuildConfigInfo.compileSdkVersion
 
     defaultConfig {
-        minSdkVersion androidMinSdkVersion
-        targetSdkVersion androidTargetSdkVersion
+        minSdkVersion BuildConfigInfo.minSdkVersion
+        targetSdkVersion BuildConfigInfo.targetSdkVersion
         applicationId "org.lynxz.utilsdemo"
-        versionCode 2
-        versionName "1.0.1"
+        versionCode 3
+        versionName "1.0.2"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -38,21 +36,21 @@ android {
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
-    testImplementation(test.junit)
-    implementation(libs.kotlinLib)
+    testImplementation(Testing.jUnit)
+    implementation(Libs.kotlinStdLib)
 
-    androidTestImplementation(test.junitExtX)
-    androidTestImplementation(test.espressoX)
-    androidTestImplementation(test.testRunnerX)
+    androidTestImplementation(Testing.extJunitX)
+    androidTestImplementation(Testing.espressoCoreX)
+    androidTestImplementation(Testing.runnerX)
 
-    implementation(libs.appcompatX)
-    implementation(libs.googleMaterial)
-    implementation(libs.constraintLayoutX)
+    implementation(Libs.appcompatX)
+    implementation(Libs.material)
+    implementation(Libs.constraintLayoutX)
 
-    implementation(libs.ktxCore)
-    implementation(libs.gson)
-//    implementation(libs.kotlinxCoroutinesCore)
-//    implementation(libs.kotlinxCoroutinesAndroid)
+    implementation(Libs.kotlinCoreKtx)
+    implementation(Libs.gson)
+//    implementation(Libs.kotlinCoroutinesCore)
+//    implementation(Libs.kotlinCoroutinesAndroid)
 
     implementation project(path: ":utils")
 }

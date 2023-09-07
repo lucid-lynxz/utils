@@ -2,19 +2,19 @@
 // date: 2021.05.09
 // description: 更新 xutils 版本
 ext {
-    gradleToolVersion = '4.1.1'
+    gradleToolVersion = '4.2.2'
 
     // Android
     androidMinSdkVersion = 21
-    androidTargetSdkVersion = 29
-    androidCompileSdkVersion = 29
+    androidTargetSdkVersion = 30
+    androidCompileSdkVersion = 30
     androidBuildToolsVersion = "29.0.2"
     androidSupportVersion = "28.0.0"
 
     // androidX
     androidSupportVersionX = '1.2.0'
     androidLegacyVersionX = '1.0.0'
-    constraintLayoutVersionX = '2.0.4'
+    constraintLayoutVersionX = '2.1.4'
 
     testInstrumentationRunner = "android.support.test.runner.AndroidJUnitRunner"
 
@@ -54,7 +54,7 @@ ext {
     richTextHtmlParserVersion = '1.0.2'
 
     okhttpVersion = '4.8.1'
-    gsonVersion = '2.8.5'
+    gsonVersion = '2.8.9'
 
     rxJavaVersion = '1.1.0'
     rxAndroidVersion = '1.1.0'
@@ -104,8 +104,8 @@ ext {
     testRulesVersion = '1.0.2'
 
     jUnitExtVersionX = '1.1.2'
-    testRunnerVersionX = '1.2.0'
-    espressoVersionX = '3.3.0'
+    testRunnerVersionX = '1.4.0'
+    espressoVersionX = '3.4.0'
 
 
     libs = [
@@ -231,7 +231,8 @@ ext {
             // 骨架图
             shimmerRecyclerView           : "com.github.sharish:ShimmerRecyclerView:v${ShimmerRecyclerViewVersion}",
 
-            kotlinLib                     : "org.jetbrains.kotlin:kotlin-stdlib-jdk7:${kotlinLibVersion}",
+
+            kotlinLib                     : "org.jetbrains.kotlin:kotlin-stdlib:${kotlinLibVersion}",
             ktxCore                       : "androidx.core:core-ktx:$ktxCoreVersion",
             kotlinxCoroutinesCore         : "org.jetbrains.kotlinx:kotlinx-coroutines-core:${kotlinxCoroutinesVersion}",
             kotlinxCoroutinesAndroid      : "org.jetbrains.kotlinx:kotlinx-coroutines-android:${kotlinxCoroutinesVersion}",

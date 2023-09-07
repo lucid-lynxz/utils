@@ -1,21 +1,20 @@
 plugins {
     id 'com.android.library'
     id 'kotlin-android'
-    id 'com.github.dcendents.android-maven'
+//    id 'com.github.dcendents.android-maven'
 //    id 'com.novoda.bintray-release'
 }
 
 group = 'com.github.lucid-lynxz' // 指定group:com.github.<用户名>
 
 android {
-    compileSdkVersion androidCompileSdkVersion
-    buildToolsVersion androidBuildToolsVersion
+    compileSdkVersion BuildConfigInfo.compileSdkVersion
 
     defaultConfig {
-        minSdkVersion androidMinSdkVersion
-        targetSdkVersion androidTargetSdkVersion
-        versionCode 22
-        versionName "0.1.22"
+        minSdkVersion BuildConfigInfo.minSdkVersion
+        targetSdkVersion BuildConfigInfo.targetSdkVersion
+        versionCode 25
+        versionName "0.1.25"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles "consumer-rules.pro"
     }
@@ -36,24 +35,24 @@ android {
 }
 
 dependencies {
-    testImplementation(test.junit)
-    testImplementation(libs.kotlinLib)
+    testImplementation(Testing.jUnit)
+    androidTestImplementation(Testing.extJunitX)
+    androidTestImplementation(Testing.espressoCoreX)
+    androidTestImplementation(Testing.runnerX)
 
-    androidTestImplementation(libs.kotlinLib)
-    androidTestImplementation(test.junitExtX)
-    androidTestImplementation(test.espressoX)
-    androidTestImplementation(test.testRunnerX)
-    androidTestImplementation project(path: ':utils')
+    implementation(Libs.appcompatX)
 
-    compileOnly(libs.kotlinLib)
-    implementation(libs.appcompatX)
+    implementation(Libs.kotlinStdLib)
+    implementation(Libs.kotlinCoreKtx)
+//    implementation(Libs.kotlinCoroutinesCore)
+//    implementation(Libs.kotlinCoroutinesAndroid)
 
-//    implementation(libs.annotationX)
-//    implementation(libs.googleMaterial)
-//    implementation(libs.constraintLayoutX)
+//    implementation(Libs.annotationX)
+//    implementation(Libs.material)
+//    implementation(Libs.constraintLayoutX)
 
     // 创建抽象类的实现类,本库暂不集成,由用户自行创建
-    // implementation(libs.javassist)
+    // implementation(Libs.javassist)
 }
 
 //publish {

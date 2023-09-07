@@ -5,16 +5,25 @@ buildscript {
         maven { url 'https://maven.aliyun.com/repository/jcenter' }
         maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
         maven { url 'https://maven.aliyun.com/repoitory/public' }
+        maven { url 'https://jitpack.io' }
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:4.0.1'
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinLibVersion"
-        classpath 'com.github.dcendents:android-maven-gradle-plugin:2.1'
+        classpath 'com.android.tools.build:gradle:4.2.2'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.6.10"
+        //classpath 'com.github.dcendents:android-maven-gradle-plugin:2.1'
 
         //添加jitpack依赖
-        classpath 'com.github.dcendents:android-maven-gradle-plugin:1.5'
+        // classpath 'com.github.dcendents:android-maven-gradle-plugin:1.5'
         // classpath 'com.novoda:bintray-release:0.9.2'
     }
+}
+
+plugins {
+    id "org.lynxz.version"
+}
+
+subprojects { Project proj ->
+    proj.apply(plugin: "org.lynxz.version")
 }
 
 allprojects {
@@ -23,6 +32,7 @@ allprojects {
         maven { url 'https://maven.aliyun.com/repository/jcenter' }
         maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
         maven { url 'https://maven.aliyun.com/repoitory/public' }
+        maven { url 'https://jitpack.io' }
     }
 }
 

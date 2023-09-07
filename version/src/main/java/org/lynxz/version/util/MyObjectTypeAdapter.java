@@ -1,4 +1,4 @@
-package org.lynxz.utilsdemo.util.gson;
+package org.lynxz.version.util;
 
 import com.google.gson.Gson;
 import com.google.gson.TypeAdapter;
@@ -16,22 +16,15 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 修复Gson int/long 数据被解析成double的问题
+ * 自定义gson 对象解析适配器,修复 int/long 数据被解析成double的问题
  * <p>
- * 源码复制自: {@link ObjectTypeAdapter}
- * 仅修改 Number 解析部分,改为区分 double/int/long,默认实现为返回 double
+ * 代码复制自 Gson 源码类: {@link ObjectTypeAdapter}
+ * 仅修改了 Number 类型的解析部分, 默认返回 double, 改为具体区分 double/int/long
  * <p>
  * 使用:
- * 1. {@link #assign2Gson(Gson)} 传入一个gson对象, 返回注入后的gson对象
- * <pre>
- *      Gson gson = MyObjectTypeAdapter.assign2Gson(new GsonBuilder()
- *                             .disableHtmlEscaping()
- *                             // .excludeFieldsWithModifiers(Modifier.PRIVATE, Modifier.STATIC, Modifier.TRANSIENT)
- *                             // .setPrettyPrinting() // 格式化数据
- *                             .create())
- * </pre>
+ * {@link #assign2Gson(Gson)} 传入一个gson对象, 返回注入后的gson对象
  */
-public final class MyObjTypeAdapter extends TypeAdapter<Object> {
+public final class MyObjectTypeAdapter extends TypeAdapter<Object> {
 
     /**
      * 通过反射,将自定义的 MyObjectTypeAdapter 注入到 Gson 对象中
@@ -48,7 +41,7 @@ public final class MyObjTypeAdapter extends TypeAdapter<Object> {
 //                    listField.setAccessible(true);
 //                    List<TypeAdapterFactory> list = (List<TypeAdapterFactory>) listField.get(o);
 //                    int i = list.indexOf(ObjectTypeAdapter.FACTORY);
-//                    list.set(i, MyObjTypeAdapter.FACTORY);
+//                    list.set(i, MyObjectTypeAdapter.FACTORY);
 //                    break;
 //                }
 //            }
@@ -65,7 +58,7 @@ public final class MyObjTypeAdapter extends TypeAdapter<Object> {
         @Override
         public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> type) {
             if (type.getRawType() == Object.class) {
-                return (TypeAdapter<T>) new MyObjTypeAdapter(gson);
+                return (TypeAdapter<T>) new MyObjectTypeAdapter(gson);
             }
             return null;
         }
@@ -73,7 +66,7 @@ public final class MyObjTypeAdapter extends TypeAdapter<Object> {
 
     private final Gson gson;
 
-    MyObjTypeAdapter(Gson gson) {
+    MyObjectTypeAdapter(Gson gson) {
         this.gson = gson;
     }
 
@@ -132,7 +125,7 @@ public final class MyObjTypeAdapter extends TypeAdapter<Object> {
         }
 
         TypeAdapter<Object> typeAdapter = (TypeAdapter<Object>) gson.getAdapter(value.getClass());
-        if (typeAdapter instanceof MyObjTypeAdapter) {
+        if (typeAdapter instanceof MyObjectTypeAdapter) {
             out.beginObject();
             out.endObject();
             return;

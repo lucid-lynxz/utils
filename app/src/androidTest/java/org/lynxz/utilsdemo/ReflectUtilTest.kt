@@ -37,5 +37,4 @@ class ReflectUtilTest {
         Assert.assertTrue(list.contains(Int.MAX_VALUE))
         Assert.assertTrue(list.contains(Int.MIN_VALUE))
     }
-
 }

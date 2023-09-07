@@ -1,3 +1,4 @@
+includeBuild("version")
 include ':utils'
 include ':app'
 rootProject.name = "Utils"
