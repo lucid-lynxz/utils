@@ -1,8 +1,11 @@
 package org.lynxz.utils
 
+import org.lynxz.utils.log.LoggerUtil
+import java.math.BigDecimal
+import java.math.RoundingMode
 import java.text.DecimalFormat
 import java.text.NumberFormat
-import java.util.*
+import java.util.Locale
 
 //
 //  字符串数字转换工具类,空安全, 支持默认值
@@ -87,5 +90,18 @@ fun Double?.double2fixStr(decimalCount: Int = 2, retainZeroTail: Boolean = true)
     }
     return format
 }
+
+/**
+ * 截取保留指定位的小数
+ *
+ * @param decimalLen 小数位数
+ */
+fun Double.setNumberPoint(decimalLen: Int): Double = try {
+    BigDecimal(this).setScale(decimalLen, RoundingMode.DOWN).toDouble()
+} catch (e: Exception) {
+    LoggerUtil.e("setNumberPoint fail num=$this,errMsg=${e.message}")
+    this
+}
+
 
 

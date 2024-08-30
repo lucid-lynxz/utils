@@ -29,7 +29,12 @@ interface ILogPersistence {
 
     /**
      * 过滤处理 [LoggerUtil] 传入的所有日志内容,按需持久化
+     * @param keepFormat 是否保留原始格式,默认false, 会自动移除换行符
      */
-    fun filterPersistenceLog(@LogLevel.LogLevel1 logLevel: Int, tag: String, msg: String?)
-
+    fun filterPersistenceLog(
+        @LogLevel.LogLevel1 logLevel: Int,
+        tag: String,
+        msg: String?,
+        keepFormat: Boolean
+    )
 }

@@ -1,6 +1,5 @@
 package org.lynxz.utils.log
 
-import android.os.Environment
 import android.util.Log
 import org.lynxz.utils.FileUtil
 import org.lynxz.utils.closeSafety
@@ -8,7 +7,8 @@ import java.io.File
 import java.io.FileWriter
 import java.io.IOException
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.Locale
 
 /**
  * log日志持久化实现类
@@ -21,7 +21,6 @@ class LogPersistenceImpl(
     private var level: Int = LogLevel.WARN,// 设置要持久化的日志等级,大于等于该等级的才会进行持久化
     private val maxCacheLen: Int = 0, // 缓冲区大小,日志超过该长度则执行flush,0表示每条日志都立即写入文件
     private val logSizeLimit: Int = 1024 * 1024, // 单个日志文件大小限制,单位:b, 默认1Mb
-    private val retainLineBreak: Boolean = false // 是否保留换行符(\n),默认移除
 ) : ILogPersistence {
     companion object {
         private const val TAG = "LogPersistenceImpl"
@@ -58,7 +57,7 @@ class LogPersistenceImpl(
 
     init {
         val create = FileUtil.create(logDirPath, true, recreateIfExist = false)
-        if (!create) throw  IllegalStateException("日志目录创建失败,请检查 $logDirPath")
+        if (!create) throw IllegalStateException("日志目录创建失败,请检查 $logDirPath")
 
         val files = File(logDirPath).listFiles()
         if (files.isNullOrEmpty()) {
@@ -148,14 +147,15 @@ class LogPersistenceImpl(
     override fun filterPersistenceLog(
         @LogLevel.LogLevel1 logLevel: Int,
         tag: String,
-        msg: String?
+        msg: String?,
+        keepFormat: Boolean
     ) {
         if (msg.isNullOrBlank() || (level > logLevel && !tagSet.contains(tag))) {
             return
         }
 
         val logLevelName = LogLevelName.getName(level)
-        val tMsg = if (retainLineBreak) msg else msg.replace("\n".toRegex(), "")
+        val tMsg = if (keepFormat) msg else msg.replace("\n".toRegex(), " ")
         sbCache.append(getDate(logSdf)).append(" ")
             .append(logLevelName).append(" ")
             .append(tag).append("\t")

@@ -1,7 +1,13 @@
 package org.lynxz.utils
 
 import android.app.Activity
-import android.graphics.*
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Matrix
+import android.graphics.Point
+import android.graphics.Rect
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -141,7 +147,7 @@ object ImageUtil {
     /**
      * 对 surfaceView 控件进行截图, 需要api 24 (android 7.0+)
      */
-    fun takeShotOfSurfaceView(surfaceView: SurfaceView, listener: onTakeShotListener?) {
+    fun takeShotOfSurfaceView(surfaceView: SurfaceView, listener: OnTakeShotListener?) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             val handler = Handler(Looper.getMainLooper())
             val bmp =
@@ -222,7 +228,7 @@ object ImageUtil {
     /**
      * 截图完成监听
      */
-    interface onTakeShotListener {
+    interface OnTakeShotListener {
         /**
          * @param success true-截图成功
          * @param bitmap  截图数据, success=true时非空

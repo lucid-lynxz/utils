@@ -227,9 +227,10 @@ object LoggerUtil {
     private fun filterPersistenceLog(
         @LogLevel.LogLevel1 logLevel: Int,
         tag: String,
-        msg: String?
+        msg: String?,
+        keepFormat: Boolean = false
     ) {
-        logPersistenceImpl?.filterPersistenceLog(logLevel, tag, msg)
+        logPersistenceImpl?.filterPersistenceLog(logLevel, tag, msg, keepFormat)
         if (logPersistenceImpl == null && cacheSize > 0 && logLevel >= cacheLogMinLevel && !msg.isNullOrBlank()) {
             synchronized(LoggerUtil::class.java) {
                 cacheList.add(LogMessage(logLevel, tag, msg))
@@ -245,4 +246,11 @@ object LoggerUtil {
      * 获取当前使用的日志持久化工具类
      * */
     fun getLogPersistenceImpl() = logPersistenceImpl
+
+    /**
+     * 以warn级别将信息写入到日志文件
+     */
+    fun writeLog(tag: String, msg: String, keepFormat: Boolean = false) {
+        filterPersistenceLog(LogLevel.WARN, tag, msg, keepFormat)
+    }
 }

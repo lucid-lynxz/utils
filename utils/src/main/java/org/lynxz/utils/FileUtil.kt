@@ -2,16 +2,30 @@
 
 package org.lynxz.utils
 
-import java.io.*
+import android.graphics.Bitmap
+import android.graphics.Bitmap.CompressFormat
+import android.os.Environment
+import android.os.StatFs
+import android.text.TextUtils
+import org.lynxz.utils.log.LoggerUtil
+import java.io.BufferedWriter
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.io.FileWriter
+import java.io.IOException
+import java.io.InputStream
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
-import java.util.*
+import java.util.Arrays
+import java.util.regex.Pattern
 
 /**
  * 文件相关操作
  * 包括: 创建, 删除, 复制, 重命名, 信息获取, 读/写(覆盖,追加)等
  * */
 object FileUtil {
+    private const val TAG = "FileUtil"
 
     /**
      * 检查文件是否存在
@@ -20,7 +34,6 @@ object FileUtil {
     fun isExist(filepath: String?): Boolean {
         return !filepath.isNullOrBlank() && File(filepath).exists()
     }
-
 
     /**
      * 判断指定目录是否为空
@@ -80,6 +93,19 @@ object FileUtil {
     }
 
     /**
+     * 删除指定目录下符合正则规则的文件
+     */
+    fun deleteByPattern(
+        dirPath: String,
+        fileNamePattern: String,
+        ignoreCase: Boolean = false
+    ): Boolean = !listSubFileNames(dirPath, fileNamePattern, ignoreCase)
+        .map { "$dirPath/$it" }
+        .map { processPath(it) }
+        .map { delete(it) }
+        .any { !it }
+
+    /**
      * 删除文件
      * P.S. 建议调用方自行先对待删除的文件/目录进行重命名,然后调用本方法
      */
@@ -117,7 +143,6 @@ object FileUtil {
         dest.parentFile.mkdirs()
         return srcFile.renameTo(dest)
     }
-
 
     /**
      * 读取文件原始字节数组
@@ -168,7 +193,6 @@ object FileUtil {
         }
         return file.readLines()
     }
-
 
     /**
      * 写文件
@@ -255,7 +279,6 @@ object FileUtil {
         }
     }
 
-
     /**
      * 复制文件到指定位置
      *
@@ -318,6 +341,40 @@ object FileUtil {
         return copyResult
     }
 
+    /**
+     * 列出指定路径目录的所有子文件列表(只包含一级子文件, 按照文件修改时间递增/递减排序返回)
+     *
+     * @param folderPath 目录路径
+     * @param ascending  是否按照升序排列 true-升序  false-降序
+     */
+    fun listSubFiles(folderPath: String?, ascending: Boolean): Array<File> {
+        val files: Array<File> = listSubFiles(folderPath) // orderByModifiedTs
+        val len = files.size
+        if (len <= 1) {
+            return files
+        }
+
+        // 创建一个保存文件和时间戳的二维数组
+        val fileWithTS = Array(len) { arrayOf<Long>(2) }
+        for (i in 0 until len) {
+            fileWithTS[i][0] = i.toLong() // 保存原始索引
+            fileWithTS[i][1] = files[i].lastModified() // 保存时间戳
+        }
+
+        // 根据时间戳升序排序
+        if (ascending) {
+            Arrays.sort(fileWithTS, Comparator.comparingLong { o: Array<Long> -> o[1] })
+        } else { // 根据时间戳降序排序
+            Arrays.sort(fileWithTS) { o1: Array<Long>, o2: Array<Long> -> o2[1].compareTo(o1[1]) }
+        }
+
+        // 重新排列文件数组
+        val sortedFiles = arrayOf<File>()
+        for (i in 0 until len) {
+            sortedFiles[i] = files[fileWithTS[i][0].toInt()]
+        }
+        return sortedFiles
+    }
 
     /**
      * 列出指定路径目录的所有子文件列表(只包含一级子文件)
@@ -342,6 +399,26 @@ object FileUtil {
     }
 
     /**
+     * 获取指定目录下, 文件名满足指定正则规则的子文件名
+     *
+     * @param dirPath         目录绝对路径, 只判断其一级子文件名
+     * @param fileNamePattern 文件名正则表达式
+     * @param ignoreCase      是否忽略大小写
+     * @return 返回符合条件的文件名列表, 可能多个
+     */
+    fun listSubFileNames(
+        dirPath: String?,
+        fileNamePattern: String,
+        ignoreCase: Boolean = false
+    ): List<String> {
+        val pattern = Pattern.compile(fileNamePattern)
+        return listSubFiles(dirPath)
+            .map { it.name }
+            .filter { pattern.matcher(ignoreCase.yes { it.lowercase() }.otherwise { it }).find() }
+            .toList()
+    }
+
+    /**
      * 获取指定文件的字节大小, 若文件不存在则返回0
      */
     @JvmStatic
@@ -363,7 +440,6 @@ object FileUtil {
         }
         return tPath
     }
-
 
     /**
      * 获取文件名, 包括扩展名, 如: x.9.png
@@ -452,7 +528,7 @@ object FileUtil {
         skipEmptyLine: Boolean,
         defaultMsg: String?
     ): String? {
-        val allLInes = FileUtil.readAllLine(filePath)
+        val allLInes = readAllLine(filePath)
         val size = allLInes.size
         if (size == 0) {
             return defaultMsg
@@ -475,5 +551,103 @@ object FileUtil {
             }
         }
         return defaultMsg
+    }
+
+    /**
+     * 保存图片到文件文件
+     *
+     * @param filePath 要保存的路径
+     */
+    fun saveImage(bitmap: Bitmap?, filePath: String): Boolean {
+        if (bitmap == null || TextUtils.isEmpty(filePath)) {
+            return false
+        }
+
+        var out: FileOutputStream? = null
+        try {
+            create(filePath)
+            val file = File(filePath)
+            out = FileOutputStream(file)
+            val format =
+                if (Bitmap.Config.ARGB_8888 == bitmap.config) CompressFormat.PNG else CompressFormat.JPEG
+            bitmap.compress(format, 100, out)
+            out.flush()
+            return true
+        } catch (e: Exception) {
+            LoggerUtil.e(TAG, "saveImage failed filePath=$filePath,errorMsg=${e.message}")
+            e.printStackTrace()
+            return false
+        } finally {
+            out.closeSafety()
+        }
+    }
+
+    /**
+     * 获取可用空间大小,单位:MB
+     */
+    fun getAvailableSpaceMB(): Long {
+        val path = Environment.getDataDirectory()
+        val stat = StatFs(path.path)
+        val blockSize = stat.blockSizeLong
+        val availableBlocks = stat.availableBlocksLong
+        return blockSize * availableBlocks / (1024 * 1024) //返回M
+    }
+
+    enum class FileUnit {
+        B, KB, MB, GB
+    }
+
+    /**
+     * 创建指定大小的文件
+     *
+     * @param path 文件绝对路径
+     * @param len  文件大小
+     * @param unit 单位，B,KB,MB，GB, 默认:B (字节)
+     */
+    fun createFile(path: String, len: Int, unit: FileUnit = FileUnit.B): Boolean {
+        //指定每次分配的块大小
+        val kb1 = 1024 // 1kb
+        val mb1 = 1024 * 1024 // 1mb
+        val mb10 = 1024 * 1024 * 10 // 10mb
+        val lenB = when (unit) { // 要创建的文件大小,单位:B
+            FileUnit.B -> len
+            FileUnit.KB -> len * 1024
+            FileUnit.MB -> len * 1024 * 1024
+            FileUnit.GB -> len * 1024 * 1024 * 1024
+        }
+
+        // 删除重建文件
+        create(path, recreateIfExist = true)
+        var fos: FileOutputStream? = null
+        val file = File(path)
+        try {
+            val batchSize = when {
+                lenB < mb1 -> kb1
+                lenB < mb10 -> mb1
+                else -> mb10
+            }
+
+            val count = lenB / batchSize
+            val last = lenB % batchSize
+
+            fos = FileOutputStream(file)
+            val fileChannel = fos.channel
+            for (i in 0 until count) {
+                val buffer = ByteBuffer.allocate(batchSize)
+                fileChannel.write(buffer)
+            }
+
+            if (last != 0) {
+                val buffer = ByteBuffer.allocate(last)
+                fileChannel.write(buffer)
+            }
+            return true
+        } catch (e: IOException) {
+            LoggerUtil.e(TAG, "createFile by len=$lenB,fail:${e.message}")
+            e.printStackTrace()
+        } finally {
+            fos.closeSafety()
+        }
+        return false
     }
 }
