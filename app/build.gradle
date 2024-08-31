@@ -32,6 +32,37 @@ android {
     kotlinOptions {
         jvmTarget = '1.8'
     }
+
+    android.applicationVariants.all { variant ->
+        // 在release模式可精简部分资源
+//        if (variant.buildType.name == 'release') {
+//            variant.mergeAssets.doLast {
+//                delete(fileTree(dir: variant.mergeAssets.outputDir, includes: ['test/**',]))
+//            }
+//        }
+
+        variant.outputs.all {// 自定义生成的apk名称
+            outputFileName = "UtilDemo_${variant.buildType.name}_v${versionName}.apk"
+        }
+
+        // 复制apk到固定目录,方便jenkins ci脚本运行
+//        variant.getAssembleProvider().get().doLast {
+//            println("===> assemble doLast: copy apk to special folder")
+//            variant.outputs.all { output ->// 自定义生成的apk名称
+//                def outputFile = output.outputFile
+//                if (outputFile != null && outputFile.name.endsWith(".apk")) {
+//                    def targetDir = "$rootDir/app/build/outputs/apk"
+//
+//                    if (outputFile != null && outputFile.name.endsWith('.apk')) {
+//                        project.copy {
+//                            from outputFile
+//                            into targetDir
+//                        }
+//                    }
+//                }
+//            }
+//        }
+    }
 }
 
 dependencies {
