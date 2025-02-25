@@ -149,10 +149,10 @@ public class ShellUtil {
                 errorResult = new BufferedReader(new InputStreamReader(process.getErrorStream()));
                 String s;
                 while ((s = successResult.readLine()) != null) {
-                    successMsg.append(s);
+                    successMsg.append(s).append("\n");
                 }
                 while ((s = errorResult.readLine()) != null) {
-                    errorMsg.append(s);
+                    errorMsg.append(s).append("\n");
                 }
             }
         } catch (Exception e) {
@@ -176,8 +176,8 @@ public class ShellUtil {
                 process.destroy();
             }
         }
-        return new CommandResult(result, successMsg == null ? null : successMsg.toString(), errorMsg == null ? null
-                : errorMsg.toString());
+        return new CommandResult(result, successMsg == null ? null : successMsg.toString().trim(), errorMsg == null ? null
+                : errorMsg.toString().trim());
     }
 
     /**

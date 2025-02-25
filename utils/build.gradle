@@ -3,6 +3,7 @@ plugins {
     id 'kotlin-android'
 //    id 'com.github.dcendents.android-maven'
 //    id 'com.novoda.bintray-release'
+    id 'maven-publish'
 }
 
 group = 'com.github.lucid-lynxz' // 指定group:com.github.<用户名>
@@ -53,6 +54,34 @@ dependencies {
 
     // 创建抽象类的实现类,本库暂不集成,由用户自行创建
     // implementation(Libs.javassist)
+}
+
+//afterEvaluate {
+//    publishing {
+//        publications {
+//            register("release", MavenPublication::class) {
+//                from(components["release"])
+//                groupId = "com.github.lucid-lynxz"
+//                artifactId = "utils"
+//                version = "0.1.25"
+//            }
+//        }
+//    }
+//}
+
+afterEvaluate {
+    publishing {
+        publications {
+            release(MavenPublication) {
+                from components.release // 表示发布 release（Jitpack不会使用到）
+
+                // 自定义属性
+                groupId = 'com.github.lucid-lynxz' // 依赖库的 Group Id（Jitpack不会使用到）
+                artifactId = 'utils' // 依赖库的名称，单组件发布时随意填写，多组件时即为此组件的 ArtifactId（Jitpack不会使用到）
+                version = "0.1.26"
+            }
+        }
+    }
 }
 
 //publish {
