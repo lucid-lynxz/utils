@@ -1,8 +1,9 @@
 package org.lynxz.utils;
 
+import org.lynxz.utils.log.LoggerUtil;
+
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.List;
 
@@ -25,7 +26,7 @@ import java.util.List;
  * @author <a href="http://www.trinea.cn" target="_blank">Trinea</a> 2013-5-16
  */
 public class ShellUtil {
-
+    private static final String TAG = "ShellUtil";
     public static final String COMMAND_SU = "su";
     public static final String COMMAND_SH = "sh";
     public static final String COMMAND_EXIT = "exit\n";
@@ -120,8 +121,8 @@ public class ShellUtil {
         Process process = null;
         BufferedReader successResult = null;
         BufferedReader errorResult = null;
-        StringBuilder successMsg = null;
-        StringBuilder errorMsg = null;
+        StringBuilder successMsg = new StringBuilder();
+        StringBuilder errorMsg = new StringBuilder();
 
         DataOutputStream os = null;
         try {
@@ -143,8 +144,6 @@ public class ShellUtil {
             result = process.waitFor();
             // get command result
             if (isNeedResultMsg) {
-                successMsg = new StringBuilder();
-                errorMsg = new StringBuilder();
                 successResult = new BufferedReader(new InputStreamReader(process.getInputStream()));
                 errorResult = new BufferedReader(new InputStreamReader(process.getErrorStream()));
                 String s;
@@ -156,28 +155,18 @@ public class ShellUtil {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            // e.printStackTrace();
+            LoggerUtil.e(TAG, "execCommand fail: " + e.getMessage());
+            errorMsg.append("\n").append(e.getMessage());
         } finally {
-            try {
-                if (os != null) {
-                    os.close();
-                }
-                if (successResult != null) {
-                    successResult.close();
-                }
-                if (errorResult != null) {
-                    errorResult.close();
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-
+                UtilExtKt.closeSafety(os);
+                UtilExtKt.closeSafety(successResult);
+                UtilExtKt.closeSafety(errorResult);
             if (process != null) {
                 process.destroy();
             }
         }
-        return new CommandResult(result, successMsg == null ? null : successMsg.toString().trim(), errorMsg == null ? null
-                : errorMsg.toString().trim());
+        return new CommandResult(result, successMsg.toString().trim(), errorMsg.toString().trim());
     }
 
     /**
